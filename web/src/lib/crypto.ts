@@ -10,11 +10,13 @@ export const b64 = (b: Uint8Array) => { let s = ""; for (let i = 0; i < b.length
 export const sha3hex = (b: Uint8Array) => hex(sha3_256(b));
 export const fingerprint = (key: Uint8Array) => sha3hex(key).slice(2, 18);
 
-export type RecipientWithKeys = { id: string; name: string; address: string; card: RecipientCard; keys: { pqPublicKey: string; mlkemPublicKey: string | null } };
+export type RecipientWithKeys = { id: string; name: string; address: string; card: RecipientCard | null; curated?: boolean; keys: { pqPublicKey: string; mlkemPublicKey: string | null } };
 
 /** Verify a recipient's signed QoreSeal card against their on-chain ML-DSA-87 + ML-KEM-1024 keys. Throws if forged. */
 export function verifiedRecipient(r: RecipientWithKeys) {
   if (!r.keys.mlkemPublicKey) throw new Error(`${r.name} has no ML-KEM key on chain`);
+  // No card: the ML-KEM key itself is on chain, registered by a hybrid-signed tx from this account.
+  if (!r.card) return { mlkemPublicKey: unhex(r.keys.mlkemPublicKey) };
   return verifyRecipientCard({
     card: r.card, chainId: CHAIN_ID, address: r.address,
     pqPublicKey: unhex(r.keys.pqPublicKey), mlkemPublicKey: unhex(r.keys.mlkemPublicKey),
@@ -43,9 +45,12 @@ export function unpackFile(payload: Uint8Array) {
 
 /** Seal a payload to every verified recipient (one envelope, many recipients). */
 export function sealDrop(payload: Uint8Array, recipients: RecipientWithKeys[]) {
-  const envelope = seal({ chainId: CHAIN_ID, purpose: PURPOSE, recipients: recipients.map(verifiedRecipient), plaintext: payload });
+  const rs = recipients.map(verifiedRecipient);
+  // Hybrid (ML-KEM + X25519) when every recipient has a card publishing an X25519 key; otherwise pure ML-KEM-1024.
+  const mode = rs.every((r) => "x25519PublicKey" in r && r.x25519PublicKey) ? "hybrid" : "mlkem";
+  const envelope = seal({ chainId: CHAIN_ID, purpose: PURPOSE, recipients: mode === "hybrid" ? rs : rs.map((r) => ({ mlkemPublicKey: r.mlkemPublicKey })), plaintext: payload, mode });
   const id = new Uint8Array(32); crypto.getRandomValues(id);
-  return { envelope, id: hex(id), sha3: sha3hex(envelope) };
+  return { envelope, id: hex(id), sha3: sha3hex(envelope), mode };
 }
 
 export const keysFromPhrase = (mnemonic: string): SealKeyPair => deriveSealKeys({ mnemonic: mnemonic.trim().toLowerCase().replace(/\s+/g, " ") });

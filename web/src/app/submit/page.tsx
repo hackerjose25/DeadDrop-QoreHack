@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ShieldCheck, Upload, Lock, Send, Download, CheckCircle2, XCircle, Loader2, FileText, EyeOff } from "lucide-react";
+import { ShieldCheck, Upload, Lock, Send, Download, CheckCircle2, XCircle, Loader2, FileText, EyeOff, UserPlus, ShieldQuestion } from "lucide-react";
 import { SCHEME, CHAIN_ID, short, txUrl } from "@/lib/config";
 import { sealDrop, packFile, verifiedRecipient, b64, fingerprint, unhex, type RecipientWithKeys } from "@/lib/crypto";
 
@@ -18,14 +18,36 @@ export default function Submit() {
   const [err, setErr] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [addr, setAddr] = useState("");
+  const [addErr, setAddErr] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const check = (r: RecipientWithKeys & { role: string }) => {
+    try { verifiedRecipient(r); return { ...r, ok: true }; } catch (e) { return { ...r, ok: false, err: String(e) }; }
+  };
+
+  /** Look up any QoreChain address that registered an inbox key, and select it. */
+  async function addRecipient(a: string, only = false) {
+    setAddErr(""); setAdding(true);
+    try {
+      const r = await fetch(`/api/recipients/lookup?address=${encodeURIComponent(a.trim())}`);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      setRecips((all) => (all.some((x) => x.id === j.id) ? all : [...all, check(j)]));
+      setChosen((c) => (only ? { [j.id]: true } : { ...c, [j.id]: true }));
+      setAddr("");
+    } catch (e) { setAddErr(e instanceof Error ? e.message : String(e)); }
+    finally { setAdding(false); }
+  }
+
   useEffect(() => {
     fetch("/api/recipients").then((r) => r.json()).then((list) => {
       if (!Array.isArray(list)) throw new Error(list.error);
-      setRecips(list.map((r: RecipientWithKeys & { role: string }) => {
-        try { verifiedRecipient(r); return { ...r, ok: true }; } catch (e) { return { ...r, ok: false, err: String(e) }; }
-      }));
+      setRecips(list.map(check));
+      const to = new URLSearchParams(location.search).get("to");
+      if (to) addRecipient(to, true); // shared link from /become: preselect just that recipient
     }).catch((e) => setErr(String(e)));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const targets = recips.filter((r) => chosen[r.id] && r.ok);
   const canSeal = targets.length > 0 && (file || text.trim()) && stage !== "sealing" && stage !== "sending";
@@ -79,12 +101,19 @@ export default function Submit() {
                     <p className="font-semibold">{r.name} <span className="text-xs font-normal muted">· {r.role}</span></p>
                     <p className="mono text-[11px] muted">{short(r.address, 10, 6)} · ML-KEM key {r.keys.mlkemPublicKey ? fingerprint(unhex(r.keys.mlkemPublicKey)) : "—"}</p>
                   </div>
-                  {r.ok ? <span className="flex items-center gap-1 text-xs text-green-400"><ShieldCheck size={14} /> card verified</span>
-                    : <span className="flex items-center gap-1 text-xs text-red-400"><XCircle size={14} /> forged / missing key</span>}
+                  {!r.ok ? <span className="flex items-center gap-1 text-xs text-red-400"><XCircle size={14} /> forged / missing key</span>
+                    : r.card ? <span className="flex items-center gap-1 text-xs text-green-400"><ShieldCheck size={14} /> card verified</span>
+                    : <span className="flex items-center gap-1 text-right text-xs amber" title="The ML-KEM key is on chain, registered by this wallet's own hybrid-signed tx. Who owns the wallet is not vouched for: compare the key fingerprint with them out-of-band."><ShieldQuestion size={14} /> key on chain · identity unverified</span>}
                 </label>
               ))}
             </div>
-            <p className="mt-3 text-xs muted">Each card is signed with the recipient&apos;s ECDSA + ML-DSA-87 keys and checked here against the keys registered on QoreChain.</p>
+            <div className="mt-3 flex gap-2">
+              <input value={addr} onChange={(e) => setAddr(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addr.trim() && addRecipient(addr)} placeholder="Any recipient's address — qor1… or 0x…" spellCheck={false}
+                className="mono min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs outline-none focus:border-amber-400/60" />
+              <button className="btn btn-ghost text-sm" disabled={adding || !addr.trim()} onClick={() => addRecipient(addr)}>{adding ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />} Add</button>
+            </div>
+            {addErr && <p className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs text-red-300">{addErr}</p>}
+            <p className="mt-3 text-xs muted">Each card is signed with the recipient&apos;s ECDSA + ML-DSA-87 keys and checked here against the keys registered on QoreChain. Any wallet can <a href="/become" className="amber hover:underline">become a recipient</a>; for those, the inbox key itself is on chain but the person behind it isn&apos;t vouched for.</p>
           </section>
 
           {/* 2. file */}

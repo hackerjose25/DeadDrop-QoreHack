@@ -26,10 +26,18 @@ export default function Inbox() {
 
   useEffect(() => { setVault(loadVault()); passkeyAvailable().then(setCanPasskey); }, []);
 
-  async function enter(k: SealKeyPair) {
+  /** Find who these keys belong to: a curated recipient, or (given the address) any wallet that became a recipient. */
+  async function enter(k: SealKeyPair, address?: string) {
+    const matches = (r: RecipientWithKeys) => !!r.keys.mlkemPublicKey && r.keys.mlkemPublicKey.replace(/^0x/, "") === hex(k.mlkemPublicKey).slice(2);
     const recips: (RecipientWithKeys & { role: string })[] = await (await fetch("/api/recipients")).json();
-    const mine = recips.find((r) => r.keys.mlkemPublicKey && r.keys.mlkemPublicKey.replace(/^0x/, "") === hex(k.mlkemPublicKey).slice(2));
-    if (!mine) throw new Error("These keys don't match any registered recipient's on-chain ML-KEM key.");
+    let mine = recips.find(matches);
+    if (!mine && address) {
+      const r = await fetch(`/api/recipients/lookup?address=${encodeURIComponent(address)}`);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      if (matches(j)) mine = j;
+    }
+    if (!mine) throw new Error("These keys don't match an inbox key registered on QoreChain. New here? Register on the Become a recipient page first.");
     setKeys(k); setMe(mine);
     await refresh(mine);
   }
@@ -40,13 +48,15 @@ export default function Inbox() {
   }
 
   const unlock = () => run(async () => {
-    const k = keysFromPhrase(phrase);
+    const words = phrase;
     setPhrase(""); // forget the words immediately; keep only derived keys in memory
-    await enter(k);
+    const k = keysFromPhrase(words);
+    const { deriveUnifiedAccount } = await import("@qorechain/sdk");
+    await enter(k, (await deriveUnifiedAccount(words.trim().toLowerCase().replace(/\s+/g, " "))).cosmos);
     setOffer(true);
   });
 
-  const unlockSaved = () => run(async () => { await enter(await unlockVault(vault!, pw)); setPw(""); });
+  const unlockSaved = () => run(async () => { await enter(await unlockVault(vault!, pw), vault!.recipientId); setPw(""); });
 
   const remember = (kind: "passkey" | "password") => run(async () => {
     if (!keys || !me) return;
@@ -126,7 +136,8 @@ export default function Inbox() {
           </button>
           {errBox}
           {vault && <button className="mt-4 text-[11px] muted hover:underline" onClick={() => { setErr(""); setUsePhrase(false); }}>← Back to {vault.kind} unlock</button>}
-          <p className="mt-4 text-[11px] muted">Tip: on a phone, use “Add to Home Screen” to install Dead Drop as an app.</p>
+          <p className="mt-4 text-[11px] muted">Not a recipient yet? <a href="/become" className="amber hover:underline">Register your wallet&apos;s inbox key</a>.</p>
+          <p className="mt-2 text-[11px] muted">Tip: on a phone, use “Add to Home Screen” to install Dead Drop as an app.</p>
         </div>
       </div>
     );

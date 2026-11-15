@@ -6,6 +6,7 @@ import { sha3_256 } from "@noble/hashes/sha3.js";
 import abiJson from "./deadDropAbi.json";
 import { DEADDROP, DEPLOY_BLOCK, EVM_RPC, REST, RECIPIENTS } from "./config";
 import { ensureWindow, isWindowError } from "./window";
+import { qorToEvm, evmToQor } from "@qorechain/sdk";
 
 const abi = abiJson as Abi;
 const chain = defineChain({ id: 9800, name: "QoreChain Testnet", nativeCurrency: { name: "QOR", symbol: "QOR", decimals: 18 }, rpcUrls: { default: { http: [EVM_RPC] } } });
@@ -38,6 +39,42 @@ export async function recipientKeys(address: string) {
   };
 }
 
+export type ResolvedRecipient = { id: string; name: string; role: string; address: string; evm: `0x${string}`; card: (typeof RECIPIENTS)[number]["card"] | null; curated: boolean; keys: Awaited<ReturnType<typeof recipientKeys>> };
+
+/**
+ * Resolve a curated id ("journalist"), or ANY QoreChain address (qor1… or 0x…) that has registered an ML-KEM-1024 key.
+ * The KEM key was registered by a hybrid-signed (ECDSA + ML-DSA-87) tx from that account, so the chain itself binds key ↔ address.
+ */
+export async function resolveRecipient(idOrAddress: string): Promise<ResolvedRecipient> {
+  const s = idOrAddress.trim();
+  const cur = RECIPIENTS.find((r) => r.id === s || r.address === s || r.evm.toLowerCase() === s.toLowerCase());
+  if (cur) return { ...cur, curated: true, keys: await recipientKeys(cur.address) };
+  let address: string, evm: `0x${string}`;
+  try {
+    if (/^0x[0-9a-fA-F]{40}$/.test(s)) { evm = s as `0x${string}`; address = evmToQor(s); }
+    else if (/^qor1[0-9a-z]{38,}$/.test(s)) { address = s; evm = qorToEvm(s) as `0x${string}`; }
+    else throw 0;
+  } catch { throw new Error("Not a QoreChain address (expected qor1… or 0x…)."); }
+  let keys: Awaited<ReturnType<typeof recipientKeys>>;
+  try { keys = await recipientKeys(address); }
+  catch { throw new Error("This wallet has no ML-DSA-87 (post-quantum) key on chain yet, so it isn't a verified Qore wallet."); }
+  if (!keys.mlkemPublicKey) throw new Error("This wallet hasn't become a Dead Drop recipient yet (no ML-KEM key on chain). Send them to /become.");
+  return { id: address, name: `${address.slice(0, 10)}…${address.slice(-4)}`, role: "Independent recipient", address, evm, card: null, curated: false, keys };
+}
+
+/** Broadcast a tx signed in the user's browser (the testnet RPC has no CORS). Only KEM-key registrations are accepted. */
+export async function broadcastSigned(txBytes: Uint8Array) {
+  const { TxRaw, TxBody } = await import("cosmjs-types/cosmos/tx/v1beta1/tx");
+  const body = TxBody.decode(TxRaw.decode(txBytes).bodyBytes);
+  if (!body.messages.length || body.messages.some((m) => m.typeUrl !== "/qorechain.pqc.v1.MsgRegisterKEMKey")) throw new Error("only ML-KEM key registrations can be broadcast here");
+  const { StargateClient } = await import("@cosmjs/stargate");
+  const client = await StargateClient.connect("https://rpc-testnet.qore.host");
+  try {
+    const r = await client.broadcastTx(txBytes, 60_000);
+    return { code: r.code, transactionHash: r.transactionHash, height: r.height, rawLog: r.rawLog };
+  } finally { client.disconnect(); }
+}
+
 /** The explorer indexes txs by their Cosmos hash; map an EVM tx hash to it (null if not indexed yet). */
 const cosmosCache = new Map<string, string>();
 export async function cosmosTxHash(evmHash: string): Promise<string | null> {
@@ -64,8 +101,8 @@ function relayerWallet() {
 
 /** Relay a sealed envelope. The server recomputes the hash itself; it never sees plaintext. */
 export async function relay(id: Hex, recipientIds: string[], envelope: Uint8Array) {
-  const recips = recipientIds.map((rid) => RECIPIENTS.find((r) => r.id === rid)).filter(Boolean) as typeof RECIPIENTS;
-  if (!recips.length) throw new Error("no valid recipients");
+  if (!recipientIds.length || recipientIds.length > 16) throw new Error("1–16 recipients required");
+  const recips = await Promise.all([...new Set(recipientIds)].map(resolveRecipient));
   if (envelope.length > 48 * 1024) throw new Error("envelope too large for inline submission (48 KB)");
   const envelopeSha3 = toHex(sha3_256(envelope));
   const wallet = relayerWallet();
