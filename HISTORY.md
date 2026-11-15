@@ -1,6 +1,6 @@
 # Dead Drop — Project History
 
-Running log of decisions, progress and verified facts. Update after every work session. Sister project: Leashed
+Running log of decisions, progress and verified facts. Update after every work session. Repo: github.com/hackerjose25/DeadDrop-QoreHack. Sister project: Leashed
 (`../QuoreHack`, github.com/hackerjose25/QuoreHack). Leashed's HISTORY.md holds the QoreChain facts both projects share.
 
 ## Key dates (UTC, 2026)
