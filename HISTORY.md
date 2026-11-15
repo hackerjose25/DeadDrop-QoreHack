@@ -32,6 +32,14 @@ it — even after Q-Day ("harvest now, decrypt later" defeated). Signature featu
   signed**; losing the seed loses the data; construction **pending external review before 1.0**.
 - KEM key registry live on testnet (Leashed's owner registered one: tx A613157D…3309).
 
+## Accounts (public only — keys in gitignored ops/.env)
+| Role | qor1 | 0x | ML-DSA-87 | ML-KEM-1024 + card |
+|---|---|---|---|---|
+| Journalist (demo) | qor1v3xmt9craxzrkwspjfhkcfj9400j79drsxm2l4 | 0x644dB59703E9843b3A01926f6c2645abDF2F15a3 | ✅ tx 299636B1…13A7 | ✅ fp 8b5cabbba653a1d4…, card `ops/cards/journalist.json` |
+| Editor (demo, 2nd recipient) | qor1h9zk5d5sk07p3dujzx3zcej7d5qskcqv957t5l | 0xb9456A3690B3fC18B79211A22C665e6D010B600C | ✅ tx 42DA75E9…D3B6 | ✅ fp 4085e8cc0f905dc8…, card `ops/cards/editor.json` |
+| Relayer (submits for anonymous sources) | qor15twnl6d0f2uqpukq4mkkzt9lj69g3hjv6w2fll | 0xA2DD3FE9AF4ab800f2c0AeeD612CBf968a88DE4c | ✅ tx 466ADE2A…BE93 | — |
+Funded from the QoreX wallet (Leashed's): 2 / 2 / 3 QOR.
+
 ## Open questions
 - Does the hackathon allow one team to submit two projects? Is "Encrypted Apps" a real category?
 - Large files: inline-in-event limit on QoreChain EVM (tx size / gas); else blob storage + on-chain hash.
@@ -40,3 +48,6 @@ it — even after Q-Day ("harvest now, decrypt later" defeated). Signature featu
 ### 15 Nov
 - Folder + git (`main`), LICENSE (MIT), .gitignore. `ops/` with qoreseal, qoresign, pqc, sdk, viem installed.
 - Read QoreSeal 0.1.0 API (above). Wrote `docs/PLAN.md`.
+- Ops copied from Leashed (roles journalist/editor/relayer). Created + funded + ML-DSA-registered all three.
+- `setup-recipient.mjs`: QoreSeal-standard keys (`deriveSealKeys` from mnemonic), KEM key registered (SDK `msg.pqc.registerKemKey`; QoreSeal's `buildRegisterKemKeyMessage` output didn't fit our signer → "empty address"), recipient card signed with QoreSign (classical key needs raw bytes, not hex string), verified via `resolveRecipient`.
+- `e2e-seal.mjs` ✅: sealToAddresses(journalist+editor) → both open; outsider NOT_A_RECIPIENT; 1-byte tamper DECRYPTION_FAILED. Envelope overhead ≈3.4 KB for 2 recipients (63 B plaintext → 3447 B) — matters for inline-on-chain size.
