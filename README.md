@@ -1,5 +1,6 @@
 # Dead Drop
-n![Dead Drop](docs/cover.png)
+
+![Dead Drop](docs/cover.png)
 
 **Expose the truth without exposing the source.** Post-quantum whistleblowing on QoreChain. A source seals evidence **in their own browser** to a recipient's on-chain ML-KEM-1024 key. A relayer posts the sealed envelope on-chain, so the source never needs a wallet. Only the recipient can open it.
 
