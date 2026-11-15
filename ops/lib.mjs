@@ -11,7 +11,7 @@ export const NET = {
   gasPrice: 0.15, // uqor per gas (SDK floor 0.1)
 };
 
-export const ROLES = ["journalist", "editor", "relayer", "outsider"];
+export const ROLES = ["journalist", "editor", "relayer", "outsider", "fresh"];
 
 export function roleArg() {
   const role = (process.argv[2] || "").toLowerCase();

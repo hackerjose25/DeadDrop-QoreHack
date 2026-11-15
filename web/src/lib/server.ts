@@ -62,11 +62,13 @@ export async function resolveRecipient(idOrAddress: string): Promise<ResolvedRec
   return { id: address, name: `${address.slice(0, 10)}…${address.slice(-4)}`, role: "Independent recipient", address, evm, card: null, curated: false, keys };
 }
 
-/** Broadcast a tx signed in the user's browser (the testnet RPC has no CORS). Only KEM-key registrations are accepted. */
+const BROADCASTABLE = ["/qorechain.pqc.v1.MsgRegisterKEMKey", "/qorechain.pqc.v1.MsgRegisterPQCKeyV2"];
+
+/** Broadcast a tx signed in the user's browser (the testnet RPC has no CORS). Only PQC key registrations are accepted. */
 export async function broadcastSigned(txBytes: Uint8Array) {
   const { TxRaw, TxBody } = await import("cosmjs-types/cosmos/tx/v1beta1/tx");
   const body = TxBody.decode(TxRaw.decode(txBytes).bodyBytes);
-  if (!body.messages.length || body.messages.some((m) => m.typeUrl !== "/qorechain.pqc.v1.MsgRegisterKEMKey")) throw new Error("only ML-KEM key registrations can be broadcast here");
+  if (!body.messages.length || body.messages.some((m) => !BROADCASTABLE.includes(m.typeUrl))) throw new Error("only PQC key registrations (ML-DSA-87 / ML-KEM-1024) can be broadcast here");
   const { StargateClient } = await import("@cosmjs/stargate");
   const client = await StargateClient.connect("https://rpc-testnet.qore.host");
   try {

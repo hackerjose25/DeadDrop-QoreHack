@@ -6,7 +6,7 @@ import { CHAIN_ID, short, EXPLORER } from "@/lib/config";
 import { keysFromPhrase, hex, fingerprint } from "@/lib/crypto";
 
 type Step = { label: string; state: "todo" | "busy" | "ok" | "fail"; detail?: string };
-const GAS = 600_000, GAS_PRICE = 0.15; // uqor per gas — fee ≈ 0.09 QOR
+const GAS = 600_000, PQC_GAS = 700_000, GAS_PRICE = 0.15; // uqor per gas — fee ≈ 0.09 QOR
 
 async function chain(path: string) {
   const r = await fetch(`/api/chain/${path}`, { cache: "no-store" });
@@ -29,7 +29,7 @@ export default function Become() {
     setPhrase(""); // never keep the words around
     setSteps([
       { label: "Derive your wallet and inbox keys on this device", state: "busy" },
-      { label: "Check it's a verified Qore wallet (ML-DSA-87 key on chain)", state: "todo" },
+      { label: "Check it's a verified Qore wallet (ML-DSA-87 key on chain)", state: "todo" as const },
       { label: "Register your ML-KEM-1024 inbox key on QoreChain", state: "todo" },
     ]);
     let i = 0;
@@ -40,32 +40,7 @@ export default function Become() {
       const fp = fingerprint(keys.mlkemPublicKey);
       set(0, { state: "ok", detail: `${short(acc.cosmos, 10, 6)} · inbox key ${fp}` });
 
-      i = 1; set(1, { state: "busy" });
-      const [pq, bal, kem] = await Promise.all([
-        chain(`qorechain/pqc/v1/account/${acc.cosmos}`),
-        chain(`cosmos/bank/v1beta1/balances/${acc.cosmos}`),
-        chain(`qorechain/pqc/v1/kem/${acc.cosmos}`),
-      ]);
-      const pqKey = (pq.body.account ?? pq.body)?.public_key;
-      if (!pq.ok || !pqKey) throw new Error("No ML-DSA-87 key is registered for this wallet. Open QoreX (or the QoreChain dashboard), register your post-quantum key, then try again.");
-      const uqor = Number((bal.body.balances ?? []).find((b: { denom: string }) => b.denom === "uqor")?.amount ?? 0);
-      set(1, { state: "ok", detail: `${(pq.body.account ?? pq.body).algorithm_name ?? "ML-DSA-87"} registered · balance ${(uqor / 1e6).toFixed(3)} QOR` });
-
-      i = 2; set(2, { state: "busy" });
-      const mine = hex(keys.mlkemPublicKey).slice(2);
-      if (kem.body.found && kem.body.key?.public_key && b64ToHex(kem.body.key.public_key) === mine) {
-        set(2, { state: "ok", detail: "Already registered — you're a recipient." });
-        setDone({ address: acc.cosmos, evm: acc.evm, fp, already: true });
-        return;
-      }
-      const fee = Math.ceil(GAS * GAS_PRICE);
-      if (uqor < fee) throw new Error(`Needs about ${(fee / 1e6).toFixed(2)} QOR for the fee. Top up from the QoreChain faucet, then retry.`);
-      const a = await chain(`cosmos/auth/v1beta1/accounts/${acc.cosmos}`);
-      const base = a.body.account?.base_account ?? a.body.account;
-      if (!base) throw new Error("Account not found on chain — fund it first.");
-      const msg = sdk.msg.pqc.registerKemKey({ sender: acc.cosmos, algorithmId: sdk.KEM_ALGORITHM_ML_KEM_1024, publicKey: keys.mlkemPublicKey });
-      const signer = new sdk.EthNativeSigner(acc, { signMode: "hybrid", rest: `${location.origin}/api/chain` });
-      // Signed here (ECDSA + ML-DSA-87); our server only forwards the bytes because the testnet RPC has no CORS.
+      // Signed here; our server only forwards the bytes because the testnet RPC has no CORS.
       const transport = {
         broadcastTx: async (tx: Uint8Array) => {
           let s = ""; tx.forEach((x) => (s += String.fromCharCode(x)));
@@ -75,6 +50,51 @@ export default function Become() {
           return j;
         },
       };
+      i = 1; set(1, { state: "busy" });
+      const [pq, bal, kem] = await Promise.all([
+        chain(`qorechain/pqc/v1/account/${acc.cosmos}`),
+        chain(`cosmos/bank/v1beta1/balances/${acc.cosmos}`),
+        chain(`qorechain/pqc/v1/kem/${acc.cosmos}`),
+      ]);
+      let uqor = Number((bal.body.balances ?? []).find((b: { denom: string }) => b.denom === "uqor")?.amount ?? 0);
+      const pqKey = pq.ok ? (pq.body.account ?? pq.body)?.public_key : null;
+      const kemFee = Math.ceil(GAS * GAS_PRICE), pqcFee = Math.ceil(PQC_GAS * GAS_PRICE);
+      if (pqKey) {
+        set(1, { state: "ok", detail: `${(pq.body.account ?? pq.body).algorithm_name ?? "ML-DSA-87"} registered · balance ${(uqor / 1e6).toFixed(3)} QOR` });
+      } else {
+        // Not yet post-quantum: register the wallet's ML-DSA-87 key (with proof of possession), signed classically — the chain's bootstrap path.
+        if (uqor < kemFee + pqcFee) throw new Error(`This wallet has ${(uqor / 1e6).toFixed(3)} QOR; it needs about ${((kemFee + pqcFee) / 1e6).toFixed(2)} QOR to register its post-quantum key and inbox key. Top it up from the QoreChain faucet, then retry.`);
+        set(1, { label: "Make it a verified Qore wallet: register its ML-DSA-87 key", detail: "not registered yet — registering now (proof of possession)…" });
+        const a0 = await chain(`cosmos/auth/v1beta1/accounts/${acc.cosmos}`);
+        const b0 = a0.body.account?.base_account ?? a0.body.account;
+        if (!b0) throw new Error("Account not found on chain — fund it first.");
+        const proofOfPossession = sdk.signProofOfPossession({ chainId: CHAIN_ID, account: acc.cosmos, keypair: acc.pqc });
+        const ecdsa = Uint8Array.from(acc.publicKey.replace(/^0x/, "").match(/.{2}/g)!.map((x) => parseInt(x, 16)));
+        const m0 = sdk.buildRegisterPqcKeyMsg(acc.cosmos, { pqcKeypair: acc.pqc, ecdsaPubkey: ecdsa, keyType: "hybrid", proofOfPossession });
+        const r0 = await new sdk.EthNativeSigner(acc, { signMode: "classical" }).signAndBroadcast(transport, {
+          chainId: CHAIN_ID, accountNumber: BigInt(b0.account_number), sequence: BigInt(b0.sequence || 0), messages: [m0],
+          fee: { amount: [{ denom: "uqor", amount: String(pqcFee) }], gas: String(PQC_GAS) },
+        });
+        if (r0.code !== 0) throw new Error(`Chain rejected the ML-DSA-87 registration (code ${r0.code}): ${r0.rawLog ?? ""}`);
+        uqor -= pqcFee;
+        set(1, { state: "ok", detail: `ML-DSA-87 key registered · tx ${short(r0.transactionHash, 8, 6)}` });
+        await new Promise((r) => setTimeout(r, 2500)); // let the next block land before the hybrid-signed tx
+      }
+
+      i = 2; set(2, { state: "busy" });
+      const mine = hex(keys.mlkemPublicKey).slice(2);
+      if (kem.body.found && kem.body.key?.public_key && b64ToHex(kem.body.key.public_key) === mine) {
+        set(2, { state: "ok", detail: "Already registered — you're a recipient." });
+        setDone({ address: acc.cosmos, evm: acc.evm, fp, already: true });
+        return;
+      }
+      const fee = kemFee;
+      if (uqor < fee) throw new Error(`Needs about ${(fee / 1e6).toFixed(2)} QOR for the fee. Top up from the QoreChain faucet, then retry.`);
+      const a = await chain(`cosmos/auth/v1beta1/accounts/${acc.cosmos}`);
+      const base = a.body.account?.base_account ?? a.body.account;
+      if (!base) throw new Error("Account not found on chain — fund it first.");
+      const msg = sdk.msg.pqc.registerKemKey({ sender: acc.cosmos, algorithmId: sdk.KEM_ALGORITHM_ML_KEM_1024, publicKey: keys.mlkemPublicKey });
+      const signer = new sdk.EthNativeSigner(acc, { signMode: "hybrid", rest: `${location.origin}/api/chain` });
       const res = await signer.signAndBroadcast(transport, {
         chainId: CHAIN_ID, accountNumber: BigInt(base.account_number), sequence: BigInt(base.sequence || 0), messages: [msg],
         fee: { amount: [{ denom: "uqor", amount: String(fee) }], gas: String(GAS) },
@@ -103,7 +123,7 @@ export default function Become() {
             <button className="btn btn-amber mt-4 w-full justify-center" disabled={busy || phrase.trim().split(/\s+/).length < 12} onClick={go}>
               {busy ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />} Register my inbox key
             </button>
-            <p className="mt-2 text-[11px] muted">Signed in your browser; the phrase is cleared immediately and never sent. Fee ≈ 0.09 QOR.</p>
+            <p className="mt-2 text-[11px] muted">Signed in your browser; the phrase is cleared immediately and never sent. Fee ≈ 0.09 QOR (+0.11 QOR if your wallet still needs its post-quantum key).</p>
           </>
         )}
 
