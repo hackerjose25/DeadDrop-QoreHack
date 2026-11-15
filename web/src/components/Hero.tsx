@@ -1,150 +1,125 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import "./hero.css";
+import Hls from "hls.js";
+import { ArrowRight, Menu, X } from "lucide-react";
 
-type Phase = "p1" | "splash" | "p2" | "idle";
-const DUR: Record<Phase, number> = { p1: 800, splash: 800, p2: 800, idle: 1000 };
+// Background stream. NOTE: the template's Mux URL currently answers 403; on any error the video hides itself and the
+// gradients / grid / glow carry the design. Swap in a working .m3u8 or .mp4 here.
+const VIDEO = "https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8";
+const GREEN = "#5ed29c", INK = "#070b0a";
+const inter = { fontFamily: "'Inter', sans-serif" };
+const jakarta = { fontFamily: "'Plus Jakarta Sans', sans-serif" };
+const serif = { fontFamily: "'Instrument Serif', serif" };
+const LINKS: [string, string][] = [["SUBMIT", "/submit"], ["INBOX", "/inbox"], ["VERIFY", "/verify"], ["RECEIVE", "/become"]];
+
+function Logo() {
+  return (
+    <Link href="/" className="flex items-center gap-2.5 text-white" aria-label="Dead Drop home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" aria-hidden>
+        <rect x="5" y="5" width="14" height="14" rx="2" transform="rotate(45 12 12)" />
+        <circle cx="12" cy="12" r="2.2" fill="white" stroke="none" />
+      </svg>
+      <span className="text-[15px] font-bold tracking-tight" style={inter}>Dead Drop</span>
+    </Link>
+  );
+}
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
   useEffect(() => { document.body.style.overflow = open ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [open]);
-  const close = () => setOpen(false);
   return (
-    <nav className="xr-nav">
-      <Link href="/" className="nav-logo">Dead Drop</Link>
-      <button className={`menu-toggle${open ? " active" : ""}`} aria-label={open ? "Close menu" : "Open menu"} onClick={() => setOpen(!open)}><span /><span /></button>
-      <div className={`nav-menu${open ? " active" : ""}`}>
-        <ul className="nav-links">
-          <li><a href="#how" onClick={close}>Method</a></li>
-          <li><Link href="/verify" onClick={close}>Verify</Link></li>
-          <li><Link href="/become" onClick={close}>Receive</Link></li>
-        </ul>
-        <div className="nav-actions">
-          <Link href="/inbox" className="btn-login" onClick={close}>Inbox</Link>
-          <Link href="/submit" className="btn-signup" onClick={close}>Submit</Link>
+    <>
+      <header className="absolute top-0 z-50 flex w-full items-center justify-between px-6 py-5 md:px-10">
+        <Logo />
+        <nav className="hidden items-center gap-10 md:flex">
+          {LINKS.map(([t, h]) => <Link key={t} href={h} className="text-[16px] text-white/85 transition-colors hover:text-[#5ed29c]" style={inter}>{t}</Link>)}
+        </nav>
+        <button className="text-white md:hidden" aria-label="Open menu" onClick={() => setOpen(true)}><Menu size={26} /></button>
+      </header>
+      {open && (
+        <div className="fixed inset-0 z-[60] flex flex-col px-6 py-5 md:hidden" style={{ background: INK }}>
+          <div className="flex items-center justify-between">
+            <Logo />
+            <button className="text-white" aria-label="Close menu" onClick={() => setOpen(false)}><X size={26} /></button>
+          </div>
+          <nav className="mt-16 flex flex-col gap-8">
+            {LINKS.map(([t, h]) => <Link key={t} href={h} onClick={() => setOpen(false)} className="text-3xl font-bold text-white transition-colors hover:text-[#5ed29c]" style={inter}>{t}</Link>)}
+          </nav>
         </div>
-      </div>
-    </nav>
+      )}
+    </>
   );
 }
 
 export default function Hero() {
-  const pipeline = useRef<HTMLDivElement>(null);
-  const nodeStack = useRef<HTMLDivElement>(null);
-  const nodeX = useRef<HTMLDivElement>(null);
-  const nodeShield = useRef<HTMLDivElement>(null);
-  const glowPath = useRef<SVGPathElement>(null);
-  const corePath = useRef<SVGPathElement>(null);
-  const gradient = useRef<SVGLinearGradientElement>(null);
-  const splash = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoOk, setVideoOk] = useState(true);
 
   useEffect(() => {
-    const p = pipeline.current, s = nodeStack.current, x = nodeX.current, sh = nodeShield.current;
-    const g = glowPath.current, c = corePath.current, gr = gradient.current, sp = splash.current;
-    if (!p || !s || !x || !sh || !g || !c || !gr || !sp) return;
-
-    const layout = () => {
-      const pR = p.getBoundingClientRect(), sR = s.getBoundingClientRect(), xR = x.getBoundingClientRect(), hR = sh.getBoundingClientRect();
-      const pt = (r: DOMRect) => `${r.left + r.width / 2 - pR.left},${r.top + r.height / 2 - pR.top}`;
-      const d = `M ${pt(sR)} L ${pt(xR)} L ${pt(hR)}`;
-      g.setAttribute("d", d); c.setAttribute("d", d);
-    };
-    const setBeam = (pct: number) => {
-      const center = pct * 100;
-      gr.setAttribute("x1", `${center - 5}%`); gr.setAttribute("x2", `${center + 5}%`);
-      gr.setAttribute("y1", "0%"); gr.setAttribute("y2", "0%");
-    };
-    const beamOpacity = (o: string) => { g.style.opacity = o === "1" ? "0.6" : o; c.style.opacity = o; };
-
-    let phase: Phase = "p1", last = performance.now(), raf = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - last) / DUR[phase]);
-      if (phase === "p1") {
-        setBeam(t * 0.5);
-        s.classList.toggle("active", t < 0.4);
-        if (t >= 1) { phase = "splash"; last = now; beamOpacity("0"); sp.classList.add("animate"); }
-      } else if (phase === "splash") {
-        if (t >= 1) { phase = "p2"; last = now; sp.classList.remove("animate"); beamOpacity("1"); }
-      } else if (phase === "p2") {
-        setBeam(0.5 + t * 0.5);
-        sh.classList.toggle("active", t > 0.6);
-        if (t >= 1) { sh.classList.remove("active"); phase = "idle"; last = now; }
-      } else if (t >= 1) { phase = "p1"; last = now; }
-      raf = requestAnimationFrame(tick);
-    };
-
-    layout();
-    window.addEventListener("resize", layout);
-    raf = requestAnimationFrame(tick);
-    return () => { window.removeEventListener("resize", layout); cancelAnimationFrame(raf); };
+    const video = videoRef.current;
+    if (!video) return;
+    if (Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: false });
+      hls.loadSource(VIDEO);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => { /* autoplay prevented */ }); });
+      hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { setVideoOk(false); hls.destroy(); } });
+      return () => hls.destroy();
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = VIDEO;
+      video.addEventListener("loadedmetadata", () => { video.play().catch(() => {}); });
+      video.addEventListener("error", () => setVideoOk(false));
+    }
   }, []);
 
   return (
-    <section className="hero-card">
-      <div className="hero-grid" aria-hidden />
-      <div className="icon-pipeline" ref={pipeline}>
-        <svg className="beam-svg" aria-hidden>
-          <defs>
-            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-            <linearGradient id="beam-gradient" ref={gradient} gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#b04090" stopOpacity="0" />
-              <stop offset="20%" stopColor="#b04090" stopOpacity="0.8" />
-              <stop offset="50%" stopColor="#fff" stopOpacity="1" />
-              <stop offset="80%" stopColor="#c8a0e0" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#c8a0e0" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path ref={glowPath} className="beam-glow" stroke="url(#beam-gradient)" strokeWidth="2" fill="none" filter="url(#glow)" />
-          <path ref={corePath} className="beam-core" stroke="url(#beam-gradient)" strokeWidth="0.8" fill="none" />
-        </svg>
+    <section className="relative flex min-h-screen w-full items-center overflow-hidden text-white" style={{ background: INK }}>
+      <video ref={videoRef} muted loop playsInline className={`absolute inset-0 h-full w-full object-cover opacity-60 ${videoOk ? "" : "hidden"}`} />
+      <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${INK} 0%, ${INK}cc 35%, transparent 100%)` }} />
+      <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${INK} 0%, transparent 45%)` }} />
 
-        <div className="icon-node node-light-right" id="node-stack" ref={nodeStack} title="Your evidence">
-          <svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
-        </div>
-        <div className="pipeline-line" />
-        <div className="pipeline-center">
-          <div className="splash" ref={splash} />
-          <div className="icon-node-center" id="node-x" ref={nodeX} title="Sealed with ML-KEM-1024">
-            <svg viewBox="0 0 40 40" aria-hidden>
-              <path fillRule="evenodd" d="M20 3 37 20 20 37 3 20Z M20 10 30 20 20 30 10 20Z" />
-              <circle cx="20" cy="20" r="4" />
-            </svg>
+      {/* grid lines */}
+      {["25%", "50%", "75%"].map((l) => <div key={l} className="absolute inset-y-0 hidden w-px bg-white/10 md:block" style={{ left: l }} />)}
+
+      {/* central glow */}
+      <svg className="pointer-events-none absolute left-1/2 top-[8%] -translate-x-1/2" width="1100" height="420" viewBox="0 0 1100 420" aria-hidden>
+        <defs>
+          <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="25" /></filter>
+          <radialGradient id="glowFill" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#2fd5c4" stopOpacity="0.35" />
+            <stop offset="60%" stopColor="#0e5a45" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#0e5a45" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <ellipse cx="550" cy="210" rx="480" ry="120" fill="url(#glowFill)" filter="url(#glow)" />
+      </svg>
+
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-16 pt-32 md:px-10">
+        {/* liquid glass card */}
+        <div className="liquid-glass mb-6 flex h-[200px] w-[200px] translate-y-[-50px] flex-col justify-between rounded-2xl p-5">
+          <span className="text-[14px] text-white/70" style={inter}>[ 2026 ]</span>
+          <div>
+            <p className="text-[18px] leading-tight text-white" style={inter}>Sealed for the <span className="italic" style={serif}>post-quantum</span> era</p>
+            <p className="mt-2 text-[11px] leading-snug text-white/60" style={inter}>ML-KEM-1024 encryption, anchored on QoreChain. Opened only by the recipient.</p>
           </div>
         </div>
-        <div className="pipeline-line right" />
-        <div className="icon-node node-light-left" id="node-shield" ref={nodeShield} title="Only the recipient opens it">
-          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" /></svg>
+
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ ...jakarta, color: GREEN }}>Post-Quantum Whistleblowing</p>
+        <h1 className="mt-4 max-w-4xl text-[40px] font-extrabold uppercase leading-[1.02] tracking-tight sm:text-[56px] lg:text-[72px]" style={inter}>
+          Expose the truth, not the source<span style={{ color: GREEN }}>.</span>
+        </h1>
+        <p className="mt-6 max-w-[512px] text-[14px] leading-relaxed text-white/70" style={inter}>
+          Seal evidence in your own browser to a journalist&apos;s on-chain key. A relayer posts it for you, so no wallet and no name.
+          Only the recipient can open it, today and after quantum computers break classical encryption.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center gap-5">
+          <Link href="/submit" className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[13px] font-bold uppercase tracking-wide transition hover:brightness-110" style={{ ...inter, background: GREEN, color: INK }}>
+            Submit Evidence <ArrowRight size={16} />
+          </Link>
+          <Link href="/become" className="text-[13px] font-semibold uppercase tracking-wide text-white/70 transition-colors hover:text-[#5ed29c]" style={inter}>Become a recipient →</Link>
         </div>
       </div>
-
-      <div className="hero-content">
-        <h1 className="hero-heading">
-          The safe way
-          <strong>to expose the truth</strong>
-        </h1>
-        <p className="hero-sub">
-          Evidence sealed in your browser with post-quantum encryption,<br />
-          anchored on QoreChain, opened only by the journalist you choose.
-        </p>
-        <Link href="/submit" className="btn-cta">Submit Evidence</Link>
-      </div>
     </section>
-  );
-}
-
-export function Brands() {
-  const I = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const };
-  return (
-    <div className="brands">
-      <div className="brand-item"><svg {...I}><polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2" /><circle cx="12" cy="12" r="2.5" fill="currentColor" /></svg>QoreChain</div>
-      <div className="brand-item"><svg {...I}><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>ML-KEM-1024</div>
-      <div className="brand-item"><svg {...I}><path d="M4 20c4-1 6-5 8-8s4-7 8-8" /><path d="M14 20h6" /></svg>ML-DSA-87</div>
-      <div className="brand-item"><svg {...I}><path d="M9 3 7 21M17 3l-2 18M4 8h17M3 16h17" /></svg>SHA3-256</div>
-      <div className="brand-item"><svg {...I}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>AES-256-GCM</div>
-    </div>
   );
 }
