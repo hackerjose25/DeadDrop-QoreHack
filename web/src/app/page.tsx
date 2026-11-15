@@ -1,33 +1,23 @@
 import Link from "next/link";
-import { Lock, EyeOff, Anchor, Smartphone, FileCheck2, ArrowRight } from "lucide-react";
+import { Lock, EyeOff, Anchor, Smartphone } from "lucide-react";
+import Hero, { Navbar } from "@/components/Hero";
 
 const STEPS = [
   { Icon: Lock, t: "Sealed in your browser", d: "The file is encrypted on your device with QoreSeal (ML-KEM-1024 + X25519) to the journalist's key registered on QoreChain. Plaintext never leaves you." },
   { Icon: EyeOff, t: "Sent without your name", d: "A relayer with its own post-quantum key submits for you. Your wallet, your address — none of it touches the chain." },
   { Icon: Anchor, t: "Anchored for good", d: "The ciphertext and its SHA3-256 hash are written to QoreChain. Anyone can see that something was sent. Only the recipients can read it." },
-  { Icon: Smartphone, t: "Opened on one phone", d: "The journalist derives their keys from a recovery phrase on their own device, checks the hash against the chain, and decrypts locally." },
+  { Icon: Smartphone, t: "Opened on one phone", d: "The journalist unlocks their keys with a passkey on their own device, checks the hash against the chain, and decrypts locally." },
 ];
 
 export default function Home() {
   return (
-    <div className="mx-auto max-w-6xl px-5 pb-10">
-      <section className="pt-10 sm:pt-16">
-        <p className="mono text-xs amber">POST-QUANTUM WHISTLEBLOWING · QORECHAIN TESTNET</p>
-        <h1 className="mt-4 max-w-3xl text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl">
-          Expose the truth.<br /><span className="amber">Not the source.</span>
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg muted">
-          Dead Drop sends evidence to a journalist so that only they can ever open it — even when the encrypted archive is public,
-          and even after quantum computers break today&apos;s encryption. <i>Harvest now, decrypt later</i> gets nothing.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/submit" className="btn btn-amber">Submit evidence <ArrowRight size={16} /></Link>
-          <Link href="/inbox" className="btn btn-ghost">Journalist inbox</Link>
-          <Link href="/verify" className="btn btn-ghost"><FileCheck2 size={16} /> Verify a receipt</Link>
-        </div>
-      </section>
+    <>
+    <Navbar />
+    <Hero />
+    <div id="how" className="mx-auto max-w-6xl scroll-mt-20 px-5 pb-10">
 
-      <section className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+      <section className="pt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {STEPS.map(({ Icon, t, d }, i) => (
           <div key={t} className="panel p-5">
             <div className="flex items-center justify-between">
@@ -56,5 +46,6 @@ export default function Home() {
         ))}
       </section>
     </div>
+    </>
   );
 }
