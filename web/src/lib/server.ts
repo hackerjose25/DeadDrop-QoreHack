@@ -37,6 +37,24 @@ export async function recipientKeys(address: string) {
   };
 }
 
+/** The explorer indexes txs by their Cosmos hash; map an EVM tx hash to it (null if not indexed yet). */
+const cosmosCache = new Map<string, string>();
+export async function cosmosTxHash(evmHash: string): Promise<string | null> {
+  if (cosmosCache.has(evmHash)) return cosmosCache.get(evmHash)!;
+  for (let i = 0; i < 4; i++) {
+    try {
+      const q = encodeURIComponent(`ethereum_tx.ethereumTxHash='${evmHash}'`);
+      const r = await fetch(`${REST}/cosmos/tx/v1beta1/txs?query=${q}&events=${q}`, { cache: "no-store" });
+      if (r.ok) {
+        const h = (await r.json()).tx_responses?.[0]?.txhash as string | undefined;
+        if (h) { cosmosCache.set(evmHash, h); return h; }
+      }
+    } catch { /* retry */ }
+    await new Promise((res) => setTimeout(res, 800 * (i + 1)));
+  }
+  return null;
+}
+
 function relayerWallet() {
   const pk = process.env.RELAYER_PRIVATE_KEY as Hex | undefined;
   if (!pk) throw new Error("RELAYER_PRIVATE_KEY is not set on the server");
@@ -60,23 +78,30 @@ export async function relay(id: Hex, recipientIds: string[], envelope: Uint8Arra
   const block = await pub.getBlock({ blockNumber: receipt.blockNumber });
   return {
     submissionId: id, envelopeSha3, size: envelope.length, recipients: recips.map((r) => r.address),
-    contract: DEADDROP, tx: hash, block: Number(receipt.blockNumber), timestamp: new Date(Number(block.timestamp) * 1000).toISOString(),
+    contract: DEADDROP, tx: hash, cosmosTx: await cosmosTxHash(hash), block: Number(receipt.blockNumber), timestamp: new Date(Number(block.timestamp) * 1000).toISOString(),
   };
 }
 
-export type Drop = { id: Hex; recipients: string[]; envelopeSha3: Hex; size: number; envelope: Hex; tx: Hex; block: number; timestamp: string | null; acknowledged: boolean };
+export type Drop = { id: Hex; recipients: string[]; envelopeSha3: Hex; size: number; envelope: Hex; tx: Hex; cosmosTx: string | null; block: number; timestamp: string | null; acknowledged: boolean };
 
 /** All drops addressed to `evm`, newest first, with the inline envelope bytes. */
 export async function dropsFor(evm: `0x${string}`): Promise<Drop[]> {
-  const logs = await pub.getContractEvents({ address: DEADDROP, abi, eventName: "Submitted", fromBlock: DEPLOY_BLOCK, toBlock: "latest" });
+  // The node caps eth_getLogs at 10,000 blocks per query, so page through in chunks.
+  const latest = await pub.getBlockNumber();
+  const STEP = BigInt(9000);
+  const ranges: [bigint, bigint][] = [];
+  for (let from = DEPLOY_BLOCK; from <= latest; from += STEP + BigInt(1)) ranges.push([from, from + STEP > latest ? latest : from + STEP]);
+  const logs = (await Promise.all(ranges.map(([fromBlock, toBlock]) =>
+    pub.getContractEvents({ address: DEADDROP, abi, eventName: "Submitted", fromBlock, toBlock })))).flat();
   const mine = logs.filter((l) => ((l as unknown as { args: { recipients: string[] } }).args.recipients ?? []).some((r) => r.toLowerCase() === evm.toLowerCase()));
   const out = await Promise.all(mine.map(async (l) => {
     const a = (l as unknown as { args: { id: Hex; recipients: string[]; envelopeSha3: Hex; size: number; envelope: Hex } }).args;
-    const [blk, ack] = await Promise.all([
+    const [blk, ack, cosmosTx] = await Promise.all([
       pub.getBlock({ blockNumber: l.blockNumber! }).catch(() => null),
       pub.readContract({ address: DEADDROP, abi, functionName: "acknowledged", args: [a.id, evm] }).catch(() => false) as Promise<boolean>,
+      cosmosTxHash(l.transactionHash!),
     ]);
-    return { id: a.id, recipients: a.recipients, envelopeSha3: a.envelopeSha3, size: Number(a.size), envelope: a.envelope, tx: l.transactionHash!, block: Number(l.blockNumber), timestamp: blk ? new Date(Number(blk.timestamp) * 1000).toISOString() : null, acknowledged: ack };
+    return { id: a.id, recipients: a.recipients, envelopeSha3: a.envelopeSha3, size: Number(a.size), envelope: a.envelope, tx: l.transactionHash!, cosmosTx, block: Number(l.blockNumber), timestamp: blk ? new Date(Number(blk.timestamp) * 1000).toISOString() : null, acknowledged: ack };
   }));
   return out.reverse();
 }

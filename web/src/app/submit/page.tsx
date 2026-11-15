@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { ShieldCheck, Upload, Lock, Send, Download, CheckCircle2, XCircle, Loader2, FileText, EyeOff } from "lucide-react";
-import { EXPLORER, SCHEME, CHAIN_ID, short } from "@/lib/config";
+import { SCHEME, CHAIN_ID, short, txUrl } from "@/lib/config";
 import { sealDrop, packFile, verifiedRecipient, b64, fingerprint, unhex, type RecipientWithKeys } from "@/lib/crypto";
 
 type Stage = "idle" | "sealing" | "sealed" | "sending" | "done" | "error";
-type Receipt = Record<string, unknown> & { tx: string; submissionId: string; envelopeSha3: string };
+type Receipt = Record<string, unknown> & { tx: string; cosmosTx?: string | null; block?: number; submissionId: string; envelopeSha3: string };
 
 export default function Submit() {
   const [recips, setRecips] = useState<(RecipientWithKeys & { role: string; ok?: boolean; err?: string })[]>([]);
@@ -130,7 +130,7 @@ export default function Submit() {
                 {[["Submission", short(receipt.submissionId, 10, 6)], ["Envelope sha3", short(receipt.envelopeSha3, 10, 6)], ["Block", String(receipt.block)], ["Time", String(receipt.timestamp)]].map(([k, v]) => (
                   <div key={k} className="flex justify-between gap-3"><dt className="muted">{k}</dt><dd className="mono">{v}</dd></div>
                 ))}
-                <div className="flex justify-between gap-3"><dt className="muted">Transaction</dt><dd><a className="mono amber hover:underline" href={`${EXPLORER}/tx/${receipt.tx}`} target="_blank" rel="noreferrer">{short(receipt.tx, 10, 6)}</a></dd></div>
+                <div className="flex justify-between gap-3"><dt className="muted">Transaction</dt><dd><a className="mono amber hover:underline" href={txUrl(receipt.cosmosTx, receipt.block)} target="_blank" rel="noreferrer">{short(receipt.tx, 10, 6)}</a></dd></div>
               </dl>
               <button className="btn btn-amber mt-4 w-full justify-center" onClick={downloadReceipt}><Download size={16} /> Download Proof of Silence</button>
               <p className="mt-2 text-[11px] muted">Keep it private. It proves this exact sealed file reached the chain at this block — without revealing anything inside it.</p>

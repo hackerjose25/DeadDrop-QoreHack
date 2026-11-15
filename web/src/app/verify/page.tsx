@@ -1,14 +1,14 @@
 "use client";
 import { useState } from "react";
 import { FileCheck2, CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { EXPLORER, short } from "@/lib/config";
+import { short, txUrl } from "@/lib/config";
 
 type Result = { matches: boolean; anchored: boolean; envelopeSha3: string; size: number; block: number; timestamp: string | null; inline: boolean };
 
 export default function Verify() {
   const [raw, setRaw] = useState("");
   const [res, setRes] = useState<Result | null>(null);
-  const [rec, setRec] = useState<{ submissionId: string; envelopeSha3: string; tx?: string } | null>(null);
+  const [rec, setRec] = useState<{ submissionId: string; envelopeSha3: string; tx?: string; cosmosTx?: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -51,7 +51,7 @@ export default function Verify() {
               {[["Submission", short(rec.submissionId, 10, 6)], ["Anchored sha3", short(res.envelopeSha3, 10, 6)], ["Size", `${res.size.toLocaleString()} B`], ["Block", String(res.block)], ["Included at", res.timestamp ?? ""], ["Ciphertext on chain", res.inline ? "yes (inline)" : "no (stored off chain)"]].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3"><dt className="muted">{k}</dt><dd className="mono">{v}</dd></div>
               ))}
-              {rec.tx && <div className="flex justify-between gap-3"><dt className="muted">Transaction</dt><dd><a className="mono amber hover:underline" href={`${EXPLORER}/tx/${rec.tx}`} target="_blank" rel="noreferrer">{short(rec.tx, 10, 6)}</a></dd></div>}
+              {rec.tx && <div className="flex justify-between gap-3"><dt className="muted">Transaction</dt><dd><a className="mono amber hover:underline" href={txUrl(rec.cosmosTx, res.block)} target="_blank" rel="noreferrer">{short(rec.tx, 10, 6)}</a></dd></div>}
             </dl>
           )}
           <p className="mt-3 text-[11px] muted">The time is when the submission was included in a block, not when the document was written. Encryption proves who can read it — not that its claims are true.</p>

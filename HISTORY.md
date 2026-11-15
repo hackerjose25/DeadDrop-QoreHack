@@ -71,6 +71,12 @@ Next.js 15 in `web/` (port 3006 locally). Dark "evidence room" theme, amber acce
 - Handles: registry baseUrl + pubkey NOT published (docs: built into QoreX/dashboard; ask QoreChain). Parked; using address + signed card meanwhile.
 - Funding 15 Nov: user claimed faucet (QoreX 104 QOR) → relayer +15, journalist +5.
 
+## Live (15 Nov)
+- **https://dead-drop-eta.vercel.app** (Vercel, root dir `web`, env RELAYER_PRIVATE_KEY). First deploy failed: Vercel blocks vulnerable Next 15.1.6 → upgraded to 15.5.29.
+- User's first live drop: 35.4 KB PNG ("kitten_optimized_20.png") → 39,742 B envelope, EVM tx 0x3d17e925…2c6fa6 = Cosmos tx 6ECF6189…499F.
+- **Explorer gotcha:** explore.qore.network/tx/ wants the **Cosmos tx hash** (hex, no 0x); EVM hashes give "encoding/hex: invalid byte 'x'". Map via REST `/cosmos/tx/v1beta1/txs?query=ethereum_tx.ethereumTxHash='0x…'`. App now returns `cosmosTx` and links with it (fallback: block page). **Leashed's README/dashboard EVM-hash explorer links have the same bug.**
+- **RPC gotcha:** eth_getLogs max 10,000 blocks per query → `dropsFor` pages in 9,000-block chunks. **Leashed's getHistory has the same latent bug.**
+
 ## Open questions
 - Does the hackathon allow one team to submit two projects? Is "Encrypted Apps" a real category?
 - Large files: inline-in-event limit on QoreChain EVM (tx size / gas); else blob storage + on-chain hash.

@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { KeyRound, Lock, Unlock, ShieldCheck, ShieldAlert, Loader2, Download, Inbox as InboxIcon, Bug } from "lucide-react";
 import type { SealKeyPair } from "@qorechain/qoreseal";
-import { EXPLORER, short } from "@/lib/config";
+import { short, txUrl } from "@/lib/config";
 import { keysFromPhrase, openDrop, sha3hex, unhex, hex, fingerprint, type RecipientWithKeys } from "@/lib/crypto";
 
-type Drop = { id: string; recipients: string[]; envelopeSha3: string; size: number; envelope: string; tx: string; block: number; timestamp: string | null };
+type Drop = { id: string; recipients: string[]; envelopeSha3: string; size: number; envelope: string; tx: string; cosmosTx?: string | null; block: number; timestamp: string | null };
 type Opened = { state: "ok"; name: string; type: string; note?: string; bytes: Uint8Array; integrity: boolean } | { state: "fail"; reason: string; integrity: boolean };
 
 export default function Inbox() {
@@ -96,7 +96,7 @@ export default function Inbox() {
             <article key={d.id} className="panel p-4">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <span className="mono muted">#{d.id.slice(2, 10)} · {d.size.toLocaleString()} B · block {d.block}</span>
-                <a className="mono amber hover:underline" href={`${EXPLORER}/tx/${d.tx}`} target="_blank" rel="noreferrer">{short(d.tx, 8, 6)}</a>
+                <a className="mono amber hover:underline" href={txUrl(d.cosmosTx, d.block)} target="_blank" rel="noreferrer">{short(d.tx, 8, 6)}</a>
               </div>
               <p className="mt-1 text-xs muted">{d.timestamp ? new Date(d.timestamp).toLocaleString() : ""} · sealed to {d.recipients.length} recipient{d.recipients.length > 1 ? "s" : ""}</p>
 

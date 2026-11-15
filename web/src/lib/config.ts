@@ -19,4 +19,7 @@ export const RECIPIENTS: Recipient[] = [
   { id: "editor", name: "Daniel Okafor", role: "Editor-in-chief", address: editorCard.address, evm: "0xb9456A3690B3fC18B79211A22C665e6D010B600C", card: editorCard as RecipientCard },
 ];
 
+/** Explorer link for a tx: the explorer indexes by Cosmos hash (no 0x); fall back to the block page. */
+export const txUrl = (cosmosTx?: string | null, block?: number) => (cosmosTx ? `${EXPLORER}/tx/${cosmosTx}` : block ? `${EXPLORER}/block/${block}` : EXPLORER);
+
 export const short = (s: string, a = 6, b = 4) => (s.length > a + b + 1 ? `${s.slice(0, a)}…${s.slice(-b)}` : s);
