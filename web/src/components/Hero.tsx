@@ -1,93 +1,124 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Hls from "hls.js";
-import { motion } from "motion/react";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
 
-const VIDEO = "https://stream.mux.com/T6oQJQ02cQ6N01TR6iHwZkKFkbepS34dkkIc9iukgy400g.m3u8";
-const POSTER = "https://images.unsplash.com/photo-1647356191320-d7a1f80ca777?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjB0ZWNobm9sb2d5JTIwbmV1cmFsJTIwbmV0d29ya3xlbnwxfHx8fDE3Njg5NzIyNTV8MA&ixlib=rb-4.1.0&q=80&w=1080";
-const sans = { fontFamily: "'Instrument Sans', sans-serif" };
+// Background stream. NOTE: the template's Mux URL currently answers 403; on any error the video hides itself and the
+// gradients / grid / glow carry the design. Swap in a working .m3u8 or .mp4 here.
+const VIDEO = "https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8";
+const GREEN = "#5ed29c", INK = "#070b0a";
+const inter = { fontFamily: "'Inter', sans-serif" };
+const jakarta = { fontFamily: "'Plus Jakarta Sans', sans-serif" };
 const serif = { fontFamily: "'Instrument Serif', serif" };
+const LINKS: [string, string][] = [["SUBMIT", "/submit"], ["INBOX", "/inbox"], ["VERIFY", "/verify"], ["RECEIVE", "/become"]];
 
-function Sunburst() {
+function Logo() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" aria-hidden>
-      {Array.from({ length: 12 }, (_, i) => {
-        const a = (i * Math.PI) / 6, r = (n: number) => Math.round(n * 100) / 100; // rounded: identical on server and client
-        return <line key={i} x1={r(12 + 4 * Math.cos(a))} y1={r(12 + 4 * Math.sin(a))} x2={r(12 + 10 * Math.cos(a))} y2={r(12 + 10 * Math.sin(a))} />;
-      })}
-      <circle cx="12" cy="12" r="2" fill="white" stroke="none" />
-    </svg>
+    <Link href="/" className="flex items-center gap-2.5 text-white" aria-label="Dead Drop home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" aria-hidden>
+        <rect x="5" y="5" width="14" height="14" rx="2" transform="rotate(45 12 12)" />
+        <circle cx="12" cy="12" r="2.2" fill="white" stroke="none" />
+      </svg>
+      <span className="text-[15px] font-bold tracking-tight" style={inter}>Dead Drop</span>
+    </Link>
   );
 }
 
 export function Navbar() {
-  const links: [string, string, boolean?][] = [["How it works", "#how", true], ["Submit", "/submit"], ["Inbox", "/inbox"], ["Verify", "/verify"]];
+  const [open, setOpen] = useState(false);
+  useEffect(() => { document.body.style.overflow = open ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [open]);
   return (
-    <nav className="fixed top-0 z-50 flex w-full items-center justify-between bg-transparent px-6 py-4" style={sans}>
-      <Link href="/" className="flex items-center gap-2.5 text-white" aria-label="Dead Drop home"><Sunburst /><span className="text-sm font-semibold">Dead Drop</span></Link>
-      <div className="hidden items-center gap-8 md:flex">
-        {links.map(([t, h, chev]) => (
-          <Link key={t} href={h} className="flex items-center gap-1 text-sm font-medium text-white/80 transition hover:text-white">{t}{chev && <ChevronDown size={14} />}</Link>
-        ))}
-      </div>
-      <div className="flex items-center gap-5">
-        <Link href="/become" className="hidden text-sm font-medium text-white/80 transition hover:text-white sm:block">Become a Recipient</Link>
-        <Link href="/submit" className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black">Get Started</Link>
-      </div>
-    </nav>
+    <>
+      <header className="absolute top-0 z-50 flex w-full items-center justify-between px-6 py-5 md:px-10">
+        <Logo />
+        <nav className="hidden items-center gap-10 md:flex">
+          {LINKS.map(([t, h]) => <Link key={t} href={h} className="text-[16px] text-white/85 transition-colors hover:text-[#5ed29c]" style={inter}>{t}</Link>)}
+        </nav>
+        <button className="text-white md:hidden" aria-label="Open menu" onClick={() => setOpen(true)}><Menu size={26} /></button>
+      </header>
+      {open && (
+        <div className="fixed inset-0 z-[60] flex flex-col px-6 py-5 md:hidden" style={{ background: INK }}>
+          <div className="flex items-center justify-between">
+            <Logo />
+            <button className="text-white" aria-label="Close menu" onClick={() => setOpen(false)}><X size={26} /></button>
+          </div>
+          <nav className="mt-16 flex flex-col gap-8">
+            {LINKS.map(([t, h]) => <Link key={t} href={h} onClick={() => setOpen(false)} className="text-3xl font-bold text-white transition-colors hover:text-[#5ed29c]" style={inter}>{t}</Link>)}
+          </nav>
+        </div>
+      )}
+    </>
   );
 }
 
 export default function Hero() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoOk, setVideoOk] = useState(true);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     if (Hls.isSupported()) {
-      const hls = new Hls();
+      const hls = new Hls({ enableWorker: false });
       hls.loadSource(VIDEO);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => { /* autoplay prevented */ }); });
+      hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { setVideoOk(false); hls.destroy(); } });
       return () => hls.destroy();
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = VIDEO;
-      video.addEventListener("loadedmetadata", () => { video.play().catch(() => { /* autoplay prevented */ }); });
+      video.addEventListener("loadedmetadata", () => { video.play().catch(() => {}); });
+      video.addEventListener("error", () => setVideoOk(false));
     }
   }, []);
 
   return (
-    <section className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-black px-6 text-white">
-      <video ref={videoRef} muted loop playsInline poster={POSTER} className="absolute inset-0 h-full w-full object-cover opacity-60" />
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-      <div className="pointer-events-none absolute left-[20%] top-[-20%] h-[600px] w-[600px] rounded-full bg-blue-900/20 mix-blend-screen blur-[120px]" />
-      <div className="pointer-events-none absolute bottom-[-10%] right-[20%] h-[500px] w-[500px] rounded-full bg-indigo-900/20 mix-blend-screen blur-[120px]" />
+    <section className="relative flex min-h-screen w-full items-center overflow-hidden text-white" style={{ background: INK }}>
+      <video ref={videoRef} muted loop playsInline className={`absolute inset-0 h-full w-full object-cover opacity-60 ${videoOk ? "" : "hidden"}`} />
+      <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${INK} 0%, ${INK}cc 35%, transparent 100%)` }} />
+      <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${INK} 0%, transparent 45%)` }} />
 
-      <div className="relative z-10 mx-auto mt-20 flex max-w-5xl flex-col items-center space-y-12 text-center">
-        <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
-          className="text-3xl leading-[1.1] text-white sm:text-5xl lg:text-[48px]" style={serif}>
-          Expose the truth, not the source
-        </motion.p>
-        <motion.h1 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, duration: 0.6 }}
-          className="bg-gradient-to-b from-white via-white to-[#b4c0ff] bg-clip-text pb-2 text-6xl font-semibold leading-[0.9] tracking-tighter text-transparent sm:text-8xl lg:text-[136px]" style={sans}>
-          Dead Drop
-        </motion.h1>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.7 }} transition={{ delay: 0.4, duration: 0.6 }}
-          className="max-w-xl text-lg leading-[1.65] text-white sm:text-[20px]" style={sans}>
-          Seal evidence in your browser with post-quantum ML-KEM-1024. Only the journalist you choose can ever open it, even after Q-Day.
-        </motion.p>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.5 }}
-          className="flex flex-col items-center gap-6 sm:flex-row">
-          <Link href="/submit" className="group flex items-center gap-4 rounded-full bg-white py-2 pl-6 pr-2 transition hover:scale-105 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)]">
-            <span className="text-lg font-medium text-[#0a0400]" style={sans}>Submit Evidence</span>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#3054ff] transition group-hover:bg-[#2040e0]"><ArrowRight size={20} className="text-white" /></span>
+      {/* grid lines */}
+      {["25%", "50%", "75%"].map((l) => <div key={l} className="absolute inset-y-0 hidden w-px bg-white/10 md:block" style={{ left: l }} />)}
+
+      {/* central glow */}
+      <svg className="pointer-events-none absolute left-1/2 top-[8%] -translate-x-1/2" width="1100" height="420" viewBox="0 0 1100 420" aria-hidden>
+        <defs>
+          <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="25" /></filter>
+          <radialGradient id="glowFill" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#2fd5c4" stopOpacity="0.35" />
+            <stop offset="60%" stopColor="#0e5a45" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#0e5a45" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <ellipse cx="550" cy="210" rx="480" ry="120" fill="url(#glowFill)" filter="url(#glow)" />
+      </svg>
+
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-16 pt-32 md:px-10">
+        {/* liquid glass card */}
+        <div className="liquid-glass mb-6 flex h-[200px] w-[200px] translate-y-[-50px] flex-col justify-between rounded-2xl p-5">
+          <span className="text-[14px] text-white/70" style={inter}>[ 2026 ]</span>
+          <div>
+            <p className="text-[18px] leading-tight text-white" style={inter}>Sealed for the <span className="italic" style={serif}>post-quantum</span> era</p>
+            <p className="mt-2 text-[11px] leading-snug text-white/60" style={inter}>ML-KEM-1024 encryption, anchored on QoreChain. Opened only by the recipient.</p>
+          </div>
+        </div>
+
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ ...jakarta, color: GREEN }}>Post-Quantum Whistleblowing</p>
+        <h1 className="mt-4 max-w-4xl text-[40px] font-extrabold uppercase leading-[1.02] tracking-tight sm:text-[56px] lg:text-[72px]" style={inter}>
+          Expose the truth, not the source<span style={{ color: GREEN }}>.</span>
+        </h1>
+        <p className="mt-6 max-w-[512px] text-[14px] leading-relaxed text-white/70" style={inter}>
+          Seal evidence in your own browser to a journalist&apos;s on-chain key. A relayer posts it for you, so no wallet and no name.
+          Only the recipient can open it, today and after quantum computers break classical encryption.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center gap-5">
+          <Link href="/submit" className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[13px] font-bold uppercase tracking-wide transition hover:brightness-110" style={{ ...inter, background: GREEN, color: INK }}>
+            Submit Evidence <ArrowRight size={16} />
           </Link>
-          <Link href="/inbox" className="group flex items-center gap-2 rounded-lg px-4 py-2 text-white/70 backdrop-blur-sm transition hover:bg-white/5 hover:text-white" style={sans}>
-            Open Inbox <ArrowRight size={18} className="transition group-hover:translate-x-1" />
-          </Link>
-        </motion.div>
+          <Link href="/become" className="text-[13px] font-semibold uppercase tracking-wide text-white/70 transition-colors hover:text-[#5ed29c]" style={inter}>Become a recipient →</Link>
+        </div>
       </div>
     </section>
   );
