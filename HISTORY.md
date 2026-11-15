@@ -60,6 +60,17 @@ Official kit list (versions refresh hourly there). Relevant to Dead Drop:
 - Others: create-qorechain-dapp 0.14.0 (full-stack starter), Wallet adapter 0.6.0 (Keplr/Leap + ML-DSA hybrid), MCP + qore CLI 0.1.0 (read-only), Asset Kit, Custody kit, Chain bridge, PQ light client (can't verify live net yet).
 - Faucet: https://dashboard.qorechain.io/faucet (QOR + fUSD/fETH/fBTC). Docs: https://docs.qorechain.io.
 
+## Web app (15 Nov)
+Next.js 15 in `web/` (port 3006 locally). Dark "evidence room" theme, amber accent, installable PWA (manifest, start_url /inbox).
+- `/submit` — loads recipients + their on-chain ML-DSA-87/ML-KEM keys, **verifies each signed card in the browser**, packs file (+name/type/note, sealed too), `seal()` in browser to all chosen recipients, shows the ciphertext ("what the public chain will see"), POST to relayer, downloads the Proof of Silence receipt.
+- `/inbox` — recovery phrase → `deriveSealKeys` on device (words cleared right after), identifies the recipient by matching its ML-KEM key against chain, lists drops from `Submitted` events, sha3 check vs anchored hash, decrypts locally, text/image preview, save file, **Simulate tampering** (1 bit → refused).
+- `/verify` — paste/load a receipt → `matches()` + stored submission.
+- API: `/api/recipients`, `/api/relay` (recomputes sha3 server-side, logs nothing), `/api/drops?recipient=`, `/api/verify`. REST fetches retried (testnet drops requests).
+- Relayer key in gitignored `web/.env.local` (derived from ops/.env RELAYER_MNEMONIC).
+- **Headless-Chrome UI e2e ✅** (scratchpad `dd-ui-test.mjs`): cards verified → seal → relay (tx 0x74df2158…4e2042) → inbox unlock → decrypt → tamper refused. (Test-harness gotcha: set React-controlled inputs only after hydration, or clear then set.)
+- Handles: registry baseUrl + pubkey NOT published (docs: built into QoreX/dashboard; ask QoreChain). Parked; using address + signed card meanwhile.
+- Funding 15 Nov: user claimed faucet (QoreX 104 QOR) → relayer +15, journalist +5.
+
 ## Open questions
 - Does the hackathon allow one team to submit two projects? Is "Encrypted Apps" a real category?
 - Large files: inline-in-event limit on QoreChain EVM (tx size / gas); else blob storage + on-chain hash.
