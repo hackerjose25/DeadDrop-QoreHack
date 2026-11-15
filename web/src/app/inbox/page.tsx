@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
-import { KeyRound, Lock, Unlock, ShieldCheck, ShieldAlert, Loader2, Download, Inbox as InboxIcon, Bug } from "lucide-react";
+import { useEffect, useState } from "react";
+import { KeyRound, Lock, Unlock, ShieldCheck, ShieldAlert, Loader2, Download, Inbox as InboxIcon, Bug, Fingerprint, LogOut } from "lucide-react";
 import type { SealKeyPair } from "@qorechain/qoreseal";
 import { short, txUrl } from "@/lib/config";
+import { loadVault, forgetVault, setupPasskey, setupPassword, unlockVault, passkeyAvailable, type Vault } from "@/lib/vault";
 import { keysFromPhrase, openDrop, sha3hex, unhex, hex, fingerprint, type RecipientWithKeys } from "@/lib/crypto";
 
 type Drop = { id: string; recipients: string[]; envelopeSha3: string; size: number; envelope: string; tx: string; cosmosTx?: string | null; block: number; timestamp: string | null };
@@ -16,19 +17,46 @@ export default function Inbox() {
   const [opened, setOpened] = useState<Record<string, Opened>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [vault, setVault] = useState<Vault | null>(null);
+  const [usePhrase, setUsePhrase] = useState(false);
+  const [pw, setPw] = useState("");
+  const [canPasskey, setCanPasskey] = useState(false);
+  const [offer, setOffer] = useState(false); // after a phrase unlock: offer to remember this device
+  const [saved, setSaved] = useState("");
 
-  async function unlock() {
-    setErr(""); setBusy(true);
-    try {
-      const k = keysFromPhrase(phrase);
-      const recips: (RecipientWithKeys & { role: string })[] = await (await fetch("/api/recipients")).json();
-      const mine = recips.find((r) => r.keys.mlkemPublicKey && r.keys.mlkemPublicKey.replace(/^0x/, "") === hex(k.mlkemPublicKey).slice(2));
-      if (!mine) throw new Error("These words don't match any registered recipient's on-chain ML-KEM key.");
-      setKeys(k); setMe(mine); setPhrase(""); // forget the words immediately; keep only derived keys in memory
-      await refresh(mine);
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
+  useEffect(() => { setVault(loadVault()); passkeyAvailable().then(setCanPasskey); }, []);
+
+  async function enter(k: SealKeyPair) {
+    const recips: (RecipientWithKeys & { role: string })[] = await (await fetch("/api/recipients")).json();
+    const mine = recips.find((r) => r.keys.mlkemPublicKey && r.keys.mlkemPublicKey.replace(/^0x/, "") === hex(k.mlkemPublicKey).slice(2));
+    if (!mine) throw new Error("These keys don't match any registered recipient's on-chain ML-KEM key.");
+    setKeys(k); setMe(mine);
+    await refresh(mine);
   }
+
+  async function run(f: () => Promise<unknown>) {
+    setErr(""); setBusy(true);
+    try { await f(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+
+  const unlock = () => run(async () => {
+    const k = keysFromPhrase(phrase);
+    setPhrase(""); // forget the words immediately; keep only derived keys in memory
+    await enter(k);
+    setOffer(true);
+  });
+
+  const unlockSaved = () => run(async () => { await enter(await unlockVault(vault!, pw)); setPw(""); });
+
+  const remember = (kind: "passkey" | "password") => run(async () => {
+    if (!keys || !me) return;
+    if (kind === "passkey") await setupPasskey(keys, me); else { await setupPassword(keys, me, pw); setPw(""); }
+    setVault(loadVault()); setOffer(false);
+    setSaved(kind === "passkey" ? "Saved. Next time, unlock with your fingerprint / face / device PIN." : "Saved. Next time, unlock with your password.");
+  });
+
+  function lock() { setKeys(null); setMe(null); setDrops(null); setOpened({}); setPw(""); setUsePhrase(false); setOffer(false); setSaved(""); }
+  function forget() { forgetVault(); setVault(null); lock(); }
 
   async function refresh(who = me) {
     if (!who) return;
@@ -58,18 +86,46 @@ export default function Inbox() {
   }
 
   if (!me) {
+    const errBox = err && <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{err}</p>;
+    const badge = (icon: React.ReactNode) => <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(245,185,66,.12)", color: "var(--amber)" }}>{icon}</span>;
+
+    if (vault && !usePhrase) {
+      return (
+        <div className="mx-auto max-w-md px-5 pb-16 pt-4">
+          <div className="panel p-6">
+            {badge(<Fingerprint size={22} />)}
+            <h1 className="text-2xl font-extrabold">Welcome back, {vault.name.split(" ")[0]}</h1>
+            <p className="mt-1 text-sm muted">Your decryption keys are stored on this device, encrypted. Unlock them with your {vault.kind === "passkey" ? "passkey (fingerprint, face or device PIN)" : "password"}. No recovery phrase needed.</p>
+            {vault.kind === "password" && (
+              <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && pw && unlockSaved()} autoComplete="current-password" placeholder="Password"
+                className="mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-amber-400/60" />
+            )}
+            <button className="btn btn-amber mt-4 w-full justify-center" disabled={busy || (vault.kind === "password" && !pw)} onClick={unlockSaved}>
+              {busy ? <Loader2 size={16} className="animate-spin" /> : vault.kind === "passkey" ? <Fingerprint size={16} /> : <Unlock size={16} />} Unlock inbox
+            </button>
+            {errBox}
+            <div className="mt-4 flex justify-between text-[11px] muted">
+              <button className="hover:underline" onClick={() => { setErr(""); setUsePhrase(true); }}>Use recovery phrase instead</button>
+              <button className="hover:underline" onClick={() => { if (confirm("Remove the saved keys from this device? You'll need your recovery phrase to set it up again.")) forget(); }}>Forget this device</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="mx-auto max-w-md px-5 pb-16 pt-4">
         <div className="panel p-6">
-          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(245,185,66,.12)", color: "var(--amber)" }}><KeyRound size={22} /></span>
+          {badge(<KeyRound size={22} />)}
           <h1 className="text-2xl font-extrabold">Journalist inbox</h1>
-          <p className="mt-1 text-sm muted">Enter your recovery phrase to derive your decryption keys <b className="text-[var(--ink)]">on this device</b>. The words are never sent anywhere and are cleared as soon as your keys are derived.</p>
+          <p className="mt-1 text-sm muted">First time on this device: enter your recovery phrase <b className="text-[var(--ink)]">once</b> to derive your decryption keys here. The words are never sent anywhere and are cleared straight away. Then lock the keys behind a passkey so you won&apos;t need the phrase again.</p>
           <textarea value={phrase} onChange={(e) => setPhrase(e.target.value)} rows={4} spellCheck={false} autoComplete="off"
             placeholder="twenty four words …" className="mono mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-amber-400/60" />
           <button className="btn btn-amber mt-4 w-full justify-center" disabled={busy || phrase.trim().split(/\s+/).length < 12} onClick={unlock}>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Unlock size={16} />} Unlock inbox
           </button>
-          {err && <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{err}</p>}
+          {errBox}
+          {vault && <button className="mt-4 text-[11px] muted hover:underline" onClick={() => { setErr(""); setUsePhrase(false); }}>← Back to {vault.kind} unlock</button>}
           <p className="mt-4 text-[11px] muted">Tip: on a phone, use “Add to Home Screen” to install Dead Drop as an app.</p>
         </div>
       </div>
@@ -83,9 +139,27 @@ export default function Inbox() {
           <h1 className="flex items-center gap-2 text-2xl font-extrabold"><InboxIcon size={22} className="amber" /> {me.name}</h1>
           <p className="mono text-[11px] muted">{short(me.address, 10, 6)} · key {fingerprint(unhex(me.keys.mlkemPublicKey!))}</p>
         </div>
-        <button className="btn btn-ghost text-sm" onClick={() => refresh().catch((e) => setErr(String(e)))}>Refresh</button>
+        <div className="flex gap-2">
+          <button className="btn btn-ghost text-sm" onClick={() => refresh().catch((e) => setErr(String(e)))}>Refresh</button>
+          <button className="btn btn-ghost text-sm" onClick={lock}><LogOut size={15} /> Lock</button>
+        </div>
       </div>
       {err && <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{err}</p>}
+
+      {offer && (
+        <div className="panel mt-4 p-4" style={{ borderColor: "rgba(245,185,66,.35)" }}>
+          <p className="flex items-center gap-2 font-semibold"><Fingerprint size={18} className="amber" /> Skip the recovery phrase next time</p>
+          <p className="mt-1 text-sm muted">Keep only your <b className="text-[var(--ink)]">decryption keys</b> on this device, encrypted. They can open drops but can&apos;t sign, move funds or change your on-chain keys. The phrase itself is never stored.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {canPasskey && <button className="btn btn-amber text-sm" disabled={busy} onClick={() => remember("passkey")}><Fingerprint size={15} /> Use a passkey</button>}
+            <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" placeholder={canPasskey ? "or a password (10+ chars)" : "Password (10+ chars)"}
+              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-amber-400/60" />
+            <button className="btn btn-ghost text-sm" disabled={busy || pw.length < 10} onClick={() => remember("password")}>Save with password</button>
+            <button className="text-xs muted hover:underline" onClick={() => setOffer(false)}>Not now</button>
+          </div>
+        </div>
+      )}
+      {saved && <p className="mt-3 rounded-xl bg-green-400/10 p-3 text-sm text-green-300">{saved}</p>}
 
       <div className="mt-6 space-y-4">
         {drops === null && <p className="flex items-center gap-2 text-sm muted"><Loader2 size={14} className="animate-spin" /> Reading drops from QoreChain…</p>}
