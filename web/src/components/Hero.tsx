@@ -52,6 +52,45 @@ export function Navbar() {
   );
 }
 
+/** Faint falling hex "ciphertext" — evokes sealed envelopes being written to the chain. Off for reduced-motion users. */
+function CipherRain() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const ctx = cv.getContext("2d")!;
+    const CH = "0123456789abcdef", FS = 14;
+    let cols: number[] = [], speed: number[] = [], w = 0, h = 0, raf = 0, last = 0;
+    const resize = () => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      w = cv.clientWidth; h = cv.clientHeight;
+      cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const n = Math.ceil(w / (FS * 1.4));
+      cols = Array.from({ length: n }, () => Math.random() * -h / FS);
+      speed = Array.from({ length: n }, () => 0.25 + Math.random() * 0.6);
+    };
+    const draw = (t: number) => {
+      raf = requestAnimationFrame(draw);
+      if (t - last < 50) return; // ~20 fps is plenty for a backdrop
+      last = t;
+      ctx.fillStyle = "rgba(7,11,10,0.16)"; // fade previous frame → trails
+      ctx.fillRect(0, 0, w, h);
+      ctx.font = `${FS}px 'JetBrains Mono', monospace`;
+      cols.forEach((y, i) => {
+        const x = i * FS * 1.4, py = y * FS;
+        ctx.fillStyle = Math.random() < 0.04 ? "rgba(190,255,225,0.85)" : "rgba(94,210,156,0.35)";
+        ctx.fillText(CH[(Math.random() * 16) | 0], x, py);
+        cols[i] = py > h + Math.random() * 400 ? 0 : y + speed[i];
+      });
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    raf = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+  }, []);
+  return <canvas ref={ref} className="absolute inset-0 h-full w-full opacity-50" aria-hidden />;
+}
+
 export default function Hero() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoOk, setVideoOk] = useState(true);
@@ -76,14 +115,19 @@ export default function Hero() {
   return (
     <section className="relative flex min-h-screen w-full items-center overflow-hidden text-white" style={{ background: INK }}>
       <video ref={videoRef} muted loop playsInline className={`absolute inset-0 h-full w-full object-cover opacity-60 ${videoOk ? "" : "hidden"}`} />
+      <CipherRain />
       <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${INK} 0%, ${INK}cc 35%, transparent 100%)` }} />
       <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${INK} 0%, transparent 45%)` }} />
 
       {/* grid lines */}
-      {["25%", "50%", "75%"].map((l) => <div key={l} className="absolute inset-y-0 hidden w-px bg-white/10 md:block" style={{ left: l }} />)}
+      {["25%", "50%", "75%"].map((l, i) => (
+        <div key={l} className="absolute inset-y-0 hidden w-px overflow-hidden bg-white/10 md:block" style={{ left: l }}>
+          <span className="grid-pulse" style={{ animationDelay: `${i * 1.7}s`, animationDuration: `${5 + i}s` }} />
+        </div>
+      ))}
 
       {/* central glow */}
-      <svg className="pointer-events-none absolute left-1/2 top-[8%] -translate-x-1/2" width="1100" height="420" viewBox="0 0 1100 420" aria-hidden>
+      <svg className="glow-breathe pointer-events-none absolute left-1/2 top-[8%] -translate-x-1/2" width="1100" height="420" viewBox="0 0 1100 420" aria-hidden>
         <defs>
           <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="25" /></filter>
           <radialGradient id="glowFill" cx="50%" cy="50%" r="50%">

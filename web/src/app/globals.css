@@ -40,3 +40,11 @@ html, body { background: var(--bg); color: var(--ink); font-family: var(--font-b
   background: linear-gradient(180deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,.08) 40%, rgba(255,255,255,0) 60%, rgba(255,255,255,.25) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask-composite: exclude; }
+
+/* Landing hero background motion */
+.grid-pulse { position: absolute; left: 0; width: 1px; height: 160px; top: -160px;
+  background: linear-gradient(to bottom, transparent, rgba(94,210,156,.9), transparent); animation: grid-pulse 6s linear infinite; }
+@keyframes grid-pulse { to { transform: translateY(calc(100vh + 320px)); } }
+.glow-breathe { animation: glow-breathe 7s ease-in-out infinite; transform-origin: center; }
+@keyframes glow-breathe { 0%, 100% { opacity: .75; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .grid-pulse, .glow-breathe { animation: none; } }
