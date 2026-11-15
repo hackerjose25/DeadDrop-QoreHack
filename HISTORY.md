@@ -49,6 +49,17 @@ Windows: journalist deploy window 600 blocks (closed F4333B25…86A7). Relayer w
 
 First on-chain drop (15 Nov): id 0xcf69bfaa…75e1, envelope 3448 B inline, sha3 0x3c9a9a48…2ec9, tx 0x086395238fd7f17f934797119c7966b780e329b00871df2bd10ec1796ff928f5 (block 10114973). Journalist read the Submitted event, matches() = true, decrypted the original text.
 
+## Kits map (from build.qorechain.io/kits, 15 Nov)
+Official kit list (versions refresh hourly there). Relevant to Dead Drop:
+- **Handles** `@qorechain/handles` 0.1.0 — QoreX @handle → address, signature checked against a pinned registry key → "drop to @journalist" + anti-impersonation.
+- **SDK React** `@qorechain/react` 0.14.0 (+ `@qorechain/sdk`) — web app chain reads.
+- **QoreX integrations** 0.1.0 — `@qorechain/qorex-cosmos-kit` / `-interchain-kit` / `-rainbowkit`, `-wallet-mock` (e2e tests), `-synpress`.
+- **QoreSign** 0.2.0 — Sign In With QoreChain for the journalist inbox.
+- **RDK** `@qorechain/rdk` 0.9.0 — data-availability blobs for large envelopes.
+- **QoreScan** 0.1.0 — `npx @qorechain/qorescan scan --network testnet --out cbom.json` (CycloneDX CBOM; "inventory aid, not a certification").
+- Others: create-qorechain-dapp 0.14.0 (full-stack starter), Wallet adapter 0.6.0 (Keplr/Leap + ML-DSA hybrid), MCP + qore CLI 0.1.0 (read-only), Asset Kit, Custody kit, Chain bridge, PQ light client (can't verify live net yet).
+- Faucet: https://dashboard.qorechain.io/faucet (QOR + fUSD/fETH/fBTC). Docs: https://docs.qorechain.io.
+
 ## Open questions
 - Does the hackathon allow one team to submit two projects? Is "Encrypted Apps" a real category?
 - Large files: inline-in-event limit on QoreChain EVM (tx size / gas); else blob storage + on-chain hash.
