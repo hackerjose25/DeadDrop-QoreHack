@@ -17,6 +17,11 @@ export async function POST(req: Request) {
     const receipt = await relay(id as `0x${string}`, recipients, fromB64(envelope));
     return NextResponse.json(receipt);
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message.split("\n")[0] : String(e) }, { status: 500 });
+    // viem hides the node's reason behind "Missing or invalid parameters." — the real cause is in `details`.
+    const details = String((e as { details?: string })?.details ?? "");
+    const msg = /authorisation window/i.test(details)
+      ? "The relayer's QoreChain EVM authorisation window has expired — the operator must reopen it (ops/window.mjs relayer open)."
+      : details || (e instanceof Error ? e.message.split("\n")[0] : String(e));
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

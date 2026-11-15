@@ -47,6 +47,8 @@ Funded from the QoreX wallet (Leashed's): 2 / 2 / 3 QOR.
 
 Windows: journalist deploy window 600 blocks (closed F4333B25…86A7). Relayer window **scoped to DeadDrop only**, 100 txs, 2 QOR.
 
+**Gotcha (15 Nov):** EVM windows are capped at **17,280 blocks (~1 day)**. When the relayer window expires, every relay fails with viem's generic "Missing or invalid parameters." (the real reason, "EVM authorisation window exhausted", is in `err.details`; `/api/relay` now surfaces it). Fix: `cd ops && node window.mjs relayer open --blocks 17280 --txs 500 --qor 10 --targets 0xae3fac004379519392da56bfd7421ef93246e389`. Reopened 15 Nov ~block 10132680 → expires ~16 Nov. **Reopen before any demo / judging.**
+
 First on-chain drop (15 Nov): id 0xcf69bfaa…75e1, envelope 3448 B inline, sha3 0x3c9a9a48…2ec9, tx 0x086395238fd7f17f934797119c7966b780e329b00871df2bd10ec1796ff928f5 (block 10114973). Journalist read the Submitted event, matches() = true, decrypted the original text.
 
 ## Kits map (from build.qorechain.io/kits, 15 Nov)
