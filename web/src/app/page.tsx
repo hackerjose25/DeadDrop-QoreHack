@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Lock, EyeOff, Anchor, Smartphone } from "lucide-react";
-import Hero, { Navbar } from "@/components/Hero";
+import Hero, { Navbar, Brands } from "@/components/Hero";
 
 const STEPS = [
   { Icon: Lock, t: "Sealed in your browser", d: "The file is encrypted on your device with QoreSeal (ML-KEM-1024 + X25519) to the journalist's key registered on QoreChain. Plaintext never leaves you." },
@@ -12,8 +12,11 @@ const STEPS = [
 export default function Home() {
   return (
     <>
+    <div className="xr-page">
     <Navbar />
     <Hero />
+    <Brands />
+    </div>
     <div id="how" className="mx-auto max-w-6xl scroll-mt-20 px-5 pb-10">
 
 
