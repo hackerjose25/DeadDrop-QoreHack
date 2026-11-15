@@ -1,0 +1,10 @@
+{
+  "account": {
+    "cosmos": "qor13rx30n7qqsc5cht0w4sp0s036ju5nel7vgpac6",
+    "evm": "0x88cD17CFC004314C5d6f756017c1f1d4B949E7Fe"
+  },
+  "deadDrop": "0x6782389993b86100265b6e69da5168cd694b7e4a",
+  "deployTx": "0x91628c6f0dcecc3bf48a3656017661aa1e0d4901f3b1af766231e0d096f3b5a2",
+  "block": 10146341,
+  "date": "2026-11-15T17:23:53.029Z"
+}

@@ -56,8 +56,30 @@ Open http://localhost:3006. Demo walk-through: **Submit** a file → **Inbox** (
 | `ops/` | Node scripts for testnet accounts, PQC/KEM registration, recipient cards, deploy, e2e. Secrets only in gitignored `ops/.env` |
 | `docs/PLAN.md` | design notes · `HISTORY.md` decisions, tx hashes, gotchas |
 
-## Built with
-QoreSeal 0.1 · QoreSign · `@qorechain/sdk` · viem · Next.js 15 · Tailwind. QoreSeal 0.1.0 is pending external review. **This is a testnet demo; don't use it for real sources.**
+## Testnet addresses (`qorechain-diana`, EVM chain 9800)
+| Role | Address |
+|---|---|
+| DeadDrop contract (app) | `0xae3fac004379519392da56bfd7421ef93246e389` |
+| Relayer | `qor15twnl6d0f2uqpukq4mkkzt9lj69g3hjv6w2fll` |
+| Journalist (Maya Iyer, demo recipient) | `qor1v3xmt9craxzrkwspjfhkcfj9400j79drsxm2l4` · `0x644dB59703E9843b3A01926f6c2645abDF2F15a3` |
+| Editor (Daniel Okafor, demo recipient) | `qor1h9zk5d5sk07p3dujzx3zcej7d5qskcqv957t5l` · `0xb9456A3690B3fC18B79211A22C665e6D010B600C` |
+| Independent recipient (via `/become`) | `qor1hne560tp5a6aw8rhl88vuej74fcjnw6wjv88x6` |
+| **Q-Day Drill account** | `qor13rx30n7qqsc5cht0w4sp0s036ju5nel7vgpac6` · `0x88cD17CFC004314C5d6f756017c1f1d4B949E7Fe` |
+| Q-Day Drill DeadDrop instance | `0x6782389993b86100265b6e69da5168cd694b7e4a` |
+
+## Q-Day Drill: threat model
+The drill gives the attacker the drill account's **ECDSA private key**. Dead Drop's defence is that nothing important can be done with ECDSA alone:
+- **Native txs:** the account has a hybrid ML-DSA-87 key (proof of possession). The chain rejects classical-only signatures (`code 20, codespace pqc: must include the hybrid signature extension`).
+- **EVM txs** (transfers, approvals, `setRelayer`, `submit`): they need an open EVM authorisation window, and opening one needs the ML-DSA-87 signature too. We keep **no window open** on the drill account, and the app's relayer opens only short windows scoped to the DeadDrop contract, with tx and value caps.
+- **Contract:** `submit` is relayer-only and checks the caller's PQC key through the `pqcKeyStatus` precompile. `setRelayer` is owner-only and requires the new relayer to have a PQC key. The contract holds no funds.
+- **Rehearsed on 15 Nov** with only the ECDSA key: native transfer ✗, classical window-open ✗, EVM transfer ✗, `setRelayer` ✗. A legitimate hybrid tx went through (`4D073C40…E887`). On drill day, `node ops/drill.mjs tx` produces the required normal transaction.
+
+## Built with (credits)
+- **QoreChain kits:** [`@qorechain/qoreseal`](https://www.npmjs.com/package/@qorechain/qoreseal) (envelopes, recipient cards), [`@qorechain/qoresign`](https://www.npmjs.com/package/@qorechain/qoresign) (card signing), [`@qorechain/sdk`](https://www.npmjs.com/package/@qorechain/sdk) (hybrid signing, PQC/KEM registry, EVM windows), [`@qorechain/handles`](https://www.npmjs.com/package/@qorechain/handles) (installed; registry not public yet).
+- **Libraries:** viem, @noble/hashes, @cosmjs/stargate, cosmjs-types, Next.js 15, React, Tailwind CSS, lucide-react, Hardhat.
+- **AI:** built with Claude Code. See [AI_USAGE.md](AI_USAGE.md).
+
+QoreSeal 0.1.0 is pending external review. **This is a testnet demo; don't use it for real sources.**
 
 ## License
 MIT
