@@ -25,6 +25,8 @@ function Logo() {
   );
 }
 
+export { Logo };
+
 export function Navbar() {
   const [open, setOpen] = useState(false);
   useEffect(() => { document.body.style.overflow = open ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [open]);
@@ -113,7 +115,7 @@ export default function Hero() {
   }, []);
 
   return (
-    <section className="relative flex min-h-screen w-full items-center overflow-hidden text-white" style={{ background: INK }}>
+    <section className="relative flex min-h-screen w-full items-start overflow-hidden text-white" style={{ background: INK }}>
       <video ref={videoRef} muted loop playsInline className={`absolute inset-0 h-full w-full object-cover opacity-60 ${videoOk ? "" : "hidden"}`} />
       <CipherRain />
       <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${INK} 0%, ${INK}cc 35%, transparent 100%)` }} />
@@ -139,16 +141,7 @@ export default function Hero() {
         <ellipse cx="550" cy="210" rx="480" ry="120" fill="url(#glowFill)" filter="url(#glow)" />
       </svg>
 
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-16 pt-32 md:px-10">
-        {/* liquid glass card */}
-        <div className="liquid-glass mb-6 flex h-[200px] w-[200px] translate-y-[-50px] flex-col justify-between rounded-2xl p-5">
-          <span className="text-[14px] text-white/70" style={inter}>[ 2026 ]</span>
-          <div>
-            <p className="text-[18px] leading-tight text-white" style={inter}>Sealed for the <span className="italic" style={serif}>post-quantum</span> era</p>
-            <p className="mt-2 text-[11px] leading-snug text-white/60" style={inter}>ML-KEM-1024 encryption, anchored on QoreChain. Opened only by the recipient.</p>
-          </div>
-        </div>
-
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-16 pt-28 md:px-10 md:pt-[18vh]">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ ...jakarta, color: GREEN }}>Post-Quantum Whistleblowing</p>
         <h1 className="mt-4 max-w-4xl text-[40px] font-extrabold uppercase leading-[1.02] tracking-tight sm:text-[56px] lg:text-[72px]" style={inter}>
           Expose the truth, not the source<span style={{ color: GREEN }}>.</span>

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "Post-quantum whistleblowing on QoreChain. Expose the truth without exposing the source.",
   manifest: "/manifest.webmanifest",
 };
-export const viewport: Viewport = { themeColor: "#08090b", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#070b0a", width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

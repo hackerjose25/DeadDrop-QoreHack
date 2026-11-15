@@ -97,7 +97,7 @@ export default function Inbox() {
 
   if (!me) {
     const errBox = err && <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{err}</p>;
-    const badge = (icon: React.ReactNode) => <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(245,185,66,.12)", color: "var(--amber)" }}>{icon}</span>;
+    const badge = (icon: React.ReactNode) => <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(94,210,156,.12)", color: "var(--amber)" }}>{icon}</span>;
 
     if (vault && !usePhrase) {
       return (
@@ -108,7 +108,7 @@ export default function Inbox() {
             <p className="mt-1 text-sm muted">Your decryption keys are stored on this device, encrypted. Unlock them with your {vault.kind === "passkey" ? "passkey (fingerprint, face or device PIN)" : "password"}. No recovery phrase needed.</p>
             {vault.kind === "password" && (
               <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && pw && unlockSaved()} autoComplete="current-password" placeholder="Password"
-                className="mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-amber-400/60" />
+                className="mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-[#5ed29c]/60" />
             )}
             <button className="btn btn-amber mt-4 w-full justify-center" disabled={busy || (vault.kind === "password" && !pw)} onClick={unlockSaved}>
               {busy ? <Loader2 size={16} className="animate-spin" /> : vault.kind === "passkey" ? <Fingerprint size={16} /> : <Unlock size={16} />} Unlock inbox
@@ -130,7 +130,7 @@ export default function Inbox() {
           <h1 className="text-2xl font-extrabold">Journalist inbox</h1>
           <p className="mt-1 text-sm muted">First time on this device: enter your recovery phrase <b className="text-[var(--ink)]">once</b> to derive your decryption keys here. The words are never sent anywhere and are cleared straight away. Then lock the keys behind a passkey so you won&apos;t need the phrase again.</p>
           <textarea value={phrase} onChange={(e) => setPhrase(e.target.value)} rows={4} spellCheck={false} autoComplete="off"
-            placeholder="twenty four words …" className="mono mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-amber-400/60" />
+            placeholder="twenty four words …" className="mono mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-[#5ed29c]/60" />
           <button className="btn btn-amber mt-4 w-full justify-center" disabled={busy || phrase.trim().split(/\s+/).length < 12} onClick={unlock}>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Unlock size={16} />} Unlock inbox
           </button>
@@ -158,13 +158,13 @@ export default function Inbox() {
       {err && <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{err}</p>}
 
       {offer && (
-        <div className="panel mt-4 p-4" style={{ borderColor: "rgba(245,185,66,.35)" }}>
+        <div className="panel mt-4 p-4" style={{ borderColor: "rgba(94,210,156,.35)" }}>
           <p className="flex items-center gap-2 font-semibold"><Fingerprint size={18} className="amber" /> Skip the recovery phrase next time</p>
           <p className="mt-1 text-sm muted">Keep only your <b className="text-[var(--ink)]">decryption keys</b> on this device, encrypted. They can open drops but can&apos;t sign, move funds or change your on-chain keys. The phrase itself is never stored.</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {canPasskey && <button className="btn btn-amber text-sm" disabled={busy} onClick={() => remember("passkey")}><Fingerprint size={15} /> Use a passkey</button>}
             <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" placeholder={canPasskey ? "or a password (10+ chars)" : "Password (10+ chars)"}
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-amber-400/60" />
+              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-[#5ed29c]/60" />
             <button className="btn btn-ghost text-sm" disabled={busy || pw.length < 10} onClick={() => remember("password")}>Save with password</button>
             <button className="text-xs muted hover:underline" onClick={() => setOffer(false)}>Not now</button>
           </div>

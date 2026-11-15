@@ -21,7 +21,7 @@ export default function Home() {
         {STEPS.map(({ Icon, t, d }, i) => (
           <div key={t} className="panel p-5">
             <div className="flex items-center justify-between">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "rgba(245,185,66,.12)", color: "var(--amber)" }}><Icon size={18} /></span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "rgba(94,210,156,.12)", color: "var(--amber)" }}><Icon size={18} /></span>
               <span className="mono text-xs muted">0{i + 1}</span>
             </div>
             <h3 className="mt-4 font-bold">{t}</h3>

@@ -112,14 +112,14 @@ export default function Become() {
   return (
     <div className="mx-auto max-w-xl px-5 pb-16 pt-4">
       <div className="panel p-6">
-        <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(245,185,66,.12)", color: "var(--amber)" }}><UserPlus size={22} /></span>
+        <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(94,210,156,.12)", color: "var(--amber)" }}><UserPlus size={22} /></span>
         <h1 className="text-2xl font-extrabold">Become a recipient</h1>
         <p className="mt-1 text-sm muted">Turn any verified Qore wallet into a Dead Drop inbox. This publishes one thing on QoreChain: your <b className="text-[var(--ink)]">ML-KEM-1024 public key</b>, in a transaction signed by your wallet&apos;s ECDSA + ML-DSA-87 keys, so the chain itself vouches that the key is yours. After that, anyone can seal files that only you can open.</p>
 
         {!done && (
           <>
             <textarea value={phrase} onChange={(e) => setPhrase(e.target.value)} rows={4} spellCheck={false} autoComplete="off" disabled={busy}
-              placeholder="your wallet's recovery phrase (stays on this device)" className="mono mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-amber-400/60" />
+              placeholder="your wallet's recovery phrase (stays on this device)" className="mono mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-[#5ed29c]/60" />
             <button className="btn btn-amber mt-4 w-full justify-center" disabled={busy || phrase.trim().split(/\s+/).length < 12} onClick={go}>
               {busy ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />} Register my inbox key
             </button>

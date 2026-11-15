@@ -34,7 +34,7 @@ export default function Verify() {
       <p className="mt-2 muted">A <b className="text-[var(--ink)]">Proof of Silence</b> shows that one exact sealed submission reached QoreChain at a given block — without revealing a single byte of what it contains. Anyone can check it.</p>
       <div className="panel mt-6 p-5">
         <textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={8} spellCheck={false} placeholder='Paste the receipt JSON, or load the file below'
-          className="mono w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs outline-none focus:border-amber-400/60" />
+          className="mono w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs outline-none focus:border-[#5ed29c]/60" />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button className="btn btn-amber" disabled={busy || !raw.trim()} onClick={check}>{busy ? <Loader2 size={16} className="animate-spin" /> : <FileCheck2 size={16} />} Check against chain</button>
           <label className="btn btn-ghost cursor-pointer text-sm">Load receipt file<input type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && loadFile(e.target.files[0])} /></label>

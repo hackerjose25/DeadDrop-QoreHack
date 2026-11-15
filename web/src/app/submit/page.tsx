@@ -96,7 +96,7 @@ export default function Submit() {
             <div className="space-y-2">
               {recips.map((r) => (
                 <label key={r.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/[.02] p-3 hover:bg-white/[.04]">
-                  <input type="checkbox" className="h-4 w-4 accent-amber-400" checked={!!chosen[r.id]} disabled={!r.ok} onChange={(e) => setChosen({ ...chosen, [r.id]: e.target.checked })} />
+                  <input type="checkbox" className="h-4 w-4 accent-[#5ed29c]" checked={!!chosen[r.id]} disabled={!r.ok} onChange={(e) => setChosen({ ...chosen, [r.id]: e.target.checked })} />
                   <div className="flex-1">
                     <p className="font-semibold">{r.name} <span className="text-xs font-normal muted">· {r.role}</span></p>
                     <p className="mono text-[11px] muted">{short(r.address, 10, 6)} · ML-KEM key {r.keys.mlkemPublicKey ? fingerprint(unhex(r.keys.mlkemPublicKey)) : "—"}</p>
@@ -109,7 +109,7 @@ export default function Submit() {
             </div>
             <div className="mt-3 flex gap-2">
               <input value={addr} onChange={(e) => setAddr(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addr.trim() && addRecipient(addr)} placeholder="Any recipient's address — qor1… or 0x…" spellCheck={false}
-                className="mono min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs outline-none focus:border-amber-400/60" />
+                className="mono min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs outline-none focus:border-[#5ed29c]/60" />
               <button className="btn btn-ghost text-sm" disabled={adding || !addr.trim()} onClick={() => addRecipient(addr)}>{adding ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />} Add</button>
             </div>
             {addErr && <p className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs text-red-300">{addErr}</p>}
@@ -126,7 +126,7 @@ export default function Submit() {
             <input ref={inputRef} type="file" hidden onChange={(e) => { setFile(e.target.files?.[0] ?? null); setStage("idle"); setSealed(null); }} />
             <textarea value={text} onChange={(e) => { setText(e.target.value); setStage("idle"); setSealed(null); }} rows={3}
               placeholder={file ? "Optional note for the journalist (sealed too)" : "…or just type what you know"}
-              className="mt-3 w-full rounded-xl border border-white/10 bg-black/30 p-3 text-sm outline-none focus:border-amber-400/60" />
+              className="mt-3 w-full rounded-xl border border-white/10 bg-black/30 p-3 text-sm outline-none focus:border-[#5ed29c]/60" />
           </section>
 
           <div className="flex flex-wrap gap-3">
