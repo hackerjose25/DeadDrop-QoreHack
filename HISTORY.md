@@ -92,3 +92,5 @@ Next.js 15 in `web/` (port 3006 locally). Dark "evidence room" theme, amber acce
 - `e2e-seal.mjs` ✅: sealToAddresses(journalist+editor) → both open; outsider NOT_A_RECIPIENT; 1-byte tamper DECRYPTION_FAILED. Envelope overhead ≈3.4 KB for 2 recipients (63 B plaintext → 3447 B) — matters for inline-on-chain size.
 - `contracts/`: Hardhat (config from Leashed). `DeadDrop.sol`: relayer-only `submit` (PQC-key-gated via precompile), inline envelope ≤48 KB or hash+uri, `acknowledge` by recipients, `matches()` = Proof of Silence check, `setRelayer` PQC-gated. **9/9 tests** (mock precompile).
 - Deployed (`ops/deploy.mjs`), relayer window scoped to it, full on-chain round trip `ops/e2e-chain.mjs` ✅ (see Deployed).
+### 15 Nov (later)
+- Relay auto-renews the relayer EVM window (`web/src/lib/window.ts`): checks `/qorechain/pqc/v1/evm_window` before each send, reopens (17,280 blocks, 500 txs, 10 QOR, DeadDrop-only) when low, retries once on "authorisation window" rejection. Needs `RELAYER_MNEMONIC` server-side (**add to Vercel env**). Build ✅; renewal path not yet exercised live (window was still open, ~11.5k blocks left).

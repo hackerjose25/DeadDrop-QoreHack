@@ -5,6 +5,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { sha3_256 } from "@noble/hashes/sha3.js";
 import abiJson from "./deadDropAbi.json";
 import { DEADDROP, DEPLOY_BLOCK, EVM_RPC, REST, RECIPIENTS } from "./config";
+import { ensureWindow, isWindowError } from "./window";
 
 const abi = abiJson as Abi;
 const chain = defineChain({ id: 9800, name: "QoreChain Testnet", nativeCurrency: { name: "QOR", symbol: "QOR", decimals: 18 }, rpcUrls: { default: { http: [EVM_RPC] } } });
@@ -72,7 +73,15 @@ export async function relay(id: Hex, recipientIds: string[], envelope: Uint8Arra
     address: DEADDROP, abi, functionName: "submit", account: wallet.account,
     args: [id, recips.map((r) => r.evm), envelopeSha3, envelope.length, "", toHex(envelope)],
   });
-  const hash = await wallet.writeContract(request);
+  // The EVM window expires daily; renew it if low, and once more if the node still rejects the tx.
+  await ensureWindow().catch(() => { /* status check failed — try the send anyway */ });
+  let hash: Hex;
+  try { hash = await wallet.writeContract(request); }
+  catch (e) {
+    if (!isWindowError(e)) throw e;
+    await ensureWindow(true);
+    hash = await wallet.writeContract(request);
+  }
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`submit reverted: ${hash}`);
   const block = await pub.getBlock({ blockNumber: receipt.blockNumber });
