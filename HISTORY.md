@@ -40,6 +40,15 @@ it — even after Q-Day ("harvest now, decrypt later" defeated). Signature featu
 | Relayer (submits for anonymous sources) | qor15twnl6d0f2uqpukq4mkkzt9lj69g3hjv6w2fll | 0xA2DD3FE9AF4ab800f2c0AeeD612CBf968a88DE4c | ✅ tx 466ADE2A…BE93 | — |
 Funded from the QoreX wallet (Leashed's): 2 / 2 / 3 QOR.
 
+## Deployed (testnet)
+| Contract | Address | Tx | Notes |
+|---|---|---|---|
+| DeadDrop | 0xae3fac004379519392da56bfd7421ef93246e389 | 0xe17d110794cacc0830b5b426af3d0d40f94f68d47b852122cec51eb4ea40c533 | owner = journalist (newsroom), relayer = relayer account, pqcKeyStatus 0x…0a02 as immutable ctor arg |
+
+Windows: journalist deploy window 600 blocks (closed F4333B25…86A7). Relayer window **scoped to DeadDrop only**, 100 txs, 2 QOR.
+
+First on-chain drop (15 Nov): id 0xcf69bfaa…75e1, envelope 3448 B inline, sha3 0x3c9a9a48…2ec9, tx 0x086395238fd7f17f934797119c7966b780e329b00871df2bd10ec1796ff928f5 (block 10114973). Journalist read the Submitted event, matches() = true, decrypted the original text.
+
 ## Open questions
 - Does the hackathon allow one team to submit two projects? Is "Encrypted Apps" a real category?
 - Large files: inline-in-event limit on QoreChain EVM (tx size / gas); else blob storage + on-chain hash.
@@ -51,3 +60,5 @@ Funded from the QoreX wallet (Leashed's): 2 / 2 / 3 QOR.
 - Ops copied from Leashed (roles journalist/editor/relayer). Created + funded + ML-DSA-registered all three.
 - `setup-recipient.mjs`: QoreSeal-standard keys (`deriveSealKeys` from mnemonic), KEM key registered (SDK `msg.pqc.registerKemKey`; QoreSeal's `buildRegisterKemKeyMessage` output didn't fit our signer → "empty address"), recipient card signed with QoreSign (classical key needs raw bytes, not hex string), verified via `resolveRecipient`.
 - `e2e-seal.mjs` ✅: sealToAddresses(journalist+editor) → both open; outsider NOT_A_RECIPIENT; 1-byte tamper DECRYPTION_FAILED. Envelope overhead ≈3.4 KB for 2 recipients (63 B plaintext → 3447 B) — matters for inline-on-chain size.
+- `contracts/`: Hardhat (config from Leashed). `DeadDrop.sol`: relayer-only `submit` (PQC-key-gated via precompile), inline envelope ≤48 KB or hash+uri, `acknowledge` by recipients, `matches()` = Proof of Silence check, `setRelayer` PQC-gated. **9/9 tests** (mock precompile).
+- Deployed (`ops/deploy.mjs`), relayer window scoped to it, full on-chain round trip `ops/e2e-chain.mjs` ✅ (see Deployed).

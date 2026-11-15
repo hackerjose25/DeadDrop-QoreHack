@@ -1,0 +1,17 @@
+{
+  "network": "qorechain-diana (9800)",
+  "deadDrop": "0xae3fac004379519392da56bfd7421ef93246e389",
+  "deployTx": "0xe17d110794cacc0830b5b426af3d0d40f94f68d47b852122cec51eb4ea40c533",
+  "block": 10114889,
+  "owner": {
+    "evm": "0x644dB59703E9843b3A01926f6c2645abDF2F15a3",
+    "cosmos": "qor1v3xmt9craxzrkwspjfhkcfj9400j79drsxm2l4",
+    "role": "journalist / newsroom"
+  },
+  "relayer": {
+    "evm": "0xA2DD3FE9AF4ab800f2c0AeeD612CBf968a88DE4c",
+    "cosmos": "qor15twnl6d0f2uqpukq4mkkzt9lj69g3hjv6w2fll"
+  },
+  "pqcKeyStatus": "0x0000000000000000000000000000000000000a02",
+  "date": "2026-11-15T04:57:14.355Z"
+}
